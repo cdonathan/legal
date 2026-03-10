@@ -1,0 +1,71 @@
+# LibreOffice Line-Numbered Document
+
+LINE 001: ﻿
+
+
+
+LINE 002: CONFIDENTIALITY AGREEMENT
+
+
+LINE 003: XXXXXXX (“Broker”) has been retained on an exclusive basis by XXXXXX (the “Seller”) with respect to property located on XXXXX consisting of land parcels XXXXX (the “Property”).
+
+LINE 004: Owner has provided certain Informational Materials on the property such as financial information. Broker will not disclose this highly sensitive, confidential and proprietary Informational Materials to [NAME_1] unless and until the Purchaser agrees to strictly adhere to the terms and conditions of this Agreement by executing this Agreement. Upon Broker’s receipt of this executed Agreement, Broker is prepared to provide the Informational Materials for the [NAME_2]’s consideration in connection with the possible purchase of the Property subject to the following conditions.
+
+LINE 005: 1. 	All Informational Materials pertaining to the Property which may be furnished to the [NAME_3] by Broker shall continue to be the sole and exclusive property of the Owner and Broker. The Informational Materials will be used solely for the purpose of the [NAME_4] and may not be copied or duplicated without Broker’s written consent and must be returned to Broker upon Broker’s request or when the [NAME_5] terminates negotiations with respect to the Property.
+
+LINE 006: 2. The Informational Materials may be disclosed to the [NAME_6]’s partners, employees, legal counsel, real estate broker, real estate agent and institutional lenders (“[NAME_7]”), for the purpose of evaluating the potential purchase of the Property. [NAME_8] shall maintain in strict confidence and not disclose or transfer to any person, entity or party other than as indicated herein above. [NAME_9] is required to disclose the complete terms and conditions of this Confidentiality Agreement in its entirety to all “[NAME_10] and obtain all “[NAME_11]” strict adherence to this Agreement. [NAME_12] shall take all steps to insure that the confidential information is not disclosed, transferred or utilized in violation of this Agreement.
+
+LINE 007: 3. [NAME_13] understands and acknowledges that Broker and the Owner do not make any representations or warranty as to the accuracy or completeness of the Informational Materials and that the information used in the preparation of the Informational Materials was furnished to Broker by others and has not been independently verified by Broker and is not guaranteed as to completeness or accuracy. It is the responsibility of the [NAME_14] to independently verify the accuracy and completeness and Informational Materials.
+
+LINE 008: 4. [NAME_15] hereby indemnifies and holds harmless Broker and the Owner and their respective affiliates and successors and assigns against and from any loss, liability or expense, including attorney’s fees, arising out of any breach of any of the terms of this Agreement. [NAME_16] acknowledges that disclosure of any of the Informational Materials in violation of this Agreement would result in an irreparable injury to
+
+LINE 009: Owner and by reason thereof, the [NAME_17] consents and agrees that the Owner shall be entitled to an injunction to be issued by any court of competent jurisdiction restraining the [NAME_18] and the “[NAME_19]” and its affiliates, representatives, agents or employees from committing or continuing such violation without the necessity of posting a bond or proving special damages or irreparable injury.
+
+LINE 010: 5. [NAME_20] acknowledges that the property has not been offered for sale, but if it is, is subject to withdrawal from the market, change in offering price, prior sale or rejection of any offer because of the terms thereof, lack of satisfactory credit references of any prospective purchaser, or for any other reason whatsoever, without notice. [NAME_21] acknowledges that the property is being offered without regard to race, creed, sex, religion, or national origin. [NAME_22] agrees that in consideration of Broker supplying Informational Materials, all offers to purchase the Property shall be made through Broker.
+
+LINE 011: 6. This Agreement shall insure to the benefit of and be binding upon the [NAME_23], “[NAME_24]” and all respective successors and assigns. The failure of the Owner to insist in any one or more instances upon performance of any terms or conditions of this Agreement shall not be construed as a waiver of future performance of any term, covenant or condition and the [NAME_25]’s obligations with respect thereto shall continue in full force in effect. This Agreement shall be governed and construed in accordance with the laws of the State of Ohio.
+
+LINE 012: Your signature below constitutes Agreement with the foregoing. Please return one original signed copy of this Agreement to:
+
+
+
+
+LINE 013: Broker
+LINE 014: XXXXXXX
+
+LINE 015: Telephone:  XXXXX
+LINE 016: Fax:	XXXXX
+
+
+LINE 017: POTENTIAL PURCHASER: ACCEPTED AND AGREED TO THIS 	DAY 	OF 20
+
+
+
+LINE 018: Company
+
+LINE 019: Signature:
+
+LINE 020: [NAME_26]:
+
+LINE 021: Title::
+
+LINE 022: Address::
+
+LINE 023: City, State & Zip:
+
+LINE 024: [NAME_27] #
+
+LINE 025: [NAME_28] #
+
+LINE 026: Fax #
+
+LINE 027: Email:
+
+
+LINE 028: Buyer’s Agent
+
+LINE 029: Signature:
+
+LINE 030: Email
+
+LINE 031: Phone:

@@ -1,0 +1,172 @@
+{
+  "448fb393e3201244": {
+    "type": "EMAIL",
+    "original": "john.smith@email.com",
+    "placeholder": "[EMAIL:448fb393e3201244]"
+  },
+  "0a828160c7b48635": {
+    "type": "EMAIL",
+    "original": "legal@abccorp.com",
+    "placeholder": "[EMAIL:0a828160c7b48635]"
+  },
+  "2f3f74607f544849": {
+    "type": "EMAIL",
+    "original": "john.smith@email.com",
+    "placeholder": "[EMAIL:2f3f74607f544849]"
+  },
+  "9213b0793ab4857e": {
+    "type": "EMAIL",
+    "original": "sarah.johnson@abccorp.com",
+    "placeholder": "[EMAIL:9213b0793ab4857e]"
+  },
+  "9d935f3dd9f79174": {
+    "type": "PHONE",
+    "original": "(555) 123-4567",
+    "placeholder": "[PHONE:9d935f3dd9f79174]"
+  },
+  "44d75aef71a21157": {
+    "type": "PHONE",
+    "original": "(555) 987-6543",
+    "placeholder": "[PHONE:44d75aef71a21157]"
+  },
+  "a34b76139a7d99da": {
+    "type": "PHONE",
+    "original": "(555) 123-4567",
+    "placeholder": "[PHONE:a34b76139a7d99da]"
+  },
+  "30a7b9d9cfc3769e": {
+    "type": "PHONE",
+    "original": "(555) 987-6543",
+    "placeholder": "[PHONE:30a7b9d9cfc3769e]"
+  },
+  "b55abd7b0d06ce65": {
+    "type": "ADDRESS",
+    "original": "123 Oak Street, Springfield, IL 62701",
+    "placeholder": "[ADDRESS:b55abd7b0d06ce65]"
+  },
+  "218e303d40d96e34": {
+    "type": "ADDRESS",
+    "original": "456 Pine Avenue, Chicago, IL 60601",
+    "placeholder": "[ADDRESS:218e303d40d96e34]"
+  },
+  "bda491f21190f463": {
+    "type": "ADDRESS",
+    "original": "123 Oak Street, Springfield, IL 62701",
+    "placeholder": "[ADDRESS:bda491f21190f463]"
+  },
+  "af7dcb2a514e7ed6": {
+    "type": "COMPANY",
+    "original": "ABC Corporation",
+    "placeholder": "[COMPANY:af7dcb2a514e7ed6]"
+  },
+  "be0ec42704400a99": {
+    "type": "COMPANY",
+    "original": "John Smith to ABC Corporation",
+    "placeholder": "[COMPANY:be0ec42704400a99]"
+  },
+  "0097f212437204eb": {
+    "type": "COMPANY",
+    "original": "OBLIGATIONS OF RECEIVING PARTY\nABC Corporation",
+    "placeholder": "[COMPANY:0097f212437204eb]"
+  },
+  "99bb4e1d4622a0ff": {
+    "type": "COMPANY",
+    "original": "ABC Corporation",
+    "placeholder": "[COMPANY:99bb4e1d4622a0ff]"
+  },
+  "30f655e81c5c66ec": {
+    "type": "COMPANY",
+    "original": "ABC Corporation",
+    "placeholder": "[COMPANY:30f655e81c5c66ec]"
+  },
+  "70db9f19b06d07cd": {
+    "type": "DATE",
+    "original": "3/9/2026",
+    "placeholder": "[DATE:70db9f19b06d07cd]"
+  },
+  "fa0ca5bf0191dd7d": {
+    "type": "DATE",
+    "original": "3/9/2026",
+    "placeholder": "[DATE:fa0ca5bf0191dd7d]"
+  },
+  "182a7ee7f573339d": {
+    "type": "PERSON",
+    "original": "Disclosure Agreement",
+    "placeholder": "[PERSON:182a7ee7f573339d]"
+  },
+  "f95c749166458057": {
+    "type": "PERSON",
+    "original": "John Smith",
+    "placeholder": "[PERSON:f95c749166458057]"
+  },
+  "410c0c1ffffd3c8c": {
+    "type": "PERSON",
+    "original": "Disclosing Party",
+    "placeholder": "[PERSON:410c0c1ffffd3c8c]"
+  },
+  "a6137e1d8dc966c9": {
+    "type": "PERSON",
+    "original": "Receiving Party",
+    "placeholder": "[PERSON:a6137e1d8dc966c9]"
+  },
+  "39ba5d4509fcbff7": {
+    "type": "PERSON",
+    "original": "Disclosing Party",
+    "placeholder": "[PERSON:39ba5d4509fcbff7]"
+  },
+  "2090928212cf2506": {
+    "type": "PERSON",
+    "original": "Receiving Party",
+    "placeholder": "[PERSON:2090928212cf2506]"
+  },
+  "fce4675a02fc89e0": {
+    "type": "PERSON",
+    "original": "Confidential Information",
+    "placeholder": "[PERSON:fce4675a02fc89e0]"
+  },
+  "509fc842e1193611": {
+    "type": "PERSON",
+    "original": "Confidential Information",
+    "placeholder": "[PERSON:509fc842e1193611]"
+  },
+  "4d95d63fe8f9e473": {
+    "type": "PERSON",
+    "original": "John Smith",
+    "placeholder": "[PERSON:4d95d63fe8f9e473]"
+  },
+  "8a6391458c84f7d4": {
+    "type": "PERSON",
+    "original": "Confidential Information",
+    "placeholder": "[PERSON:8a6391458c84f7d4]"
+  },
+  "4e4854c889aa684f": {
+    "type": "PERSON",
+    "original": "John Smith",
+    "placeholder": "[PERSON:4e4854c889aa684f]"
+  },
+  "a33c78fc760727b6": {
+    "type": "PERSON",
+    "original": "John Smith",
+    "placeholder": "[PERSON:a33c78fc760727b6]"
+  },
+  "8aedc6da3e5b50ab": {
+    "type": "PERSON",
+    "original": "Sarah Johnson",
+    "placeholder": "[PERSON:8aedc6da3e5b50ab]"
+  },
+  "c96c58b6bcac2e8c": {
+    "type": "PERSON",
+    "original": "Contact Information",
+    "placeholder": "[PERSON:c96c58b6bcac2e8c]"
+  },
+  "0073a8c08659ca6a": {
+    "type": "PERSON",
+    "original": "John Smith",
+    "placeholder": "[PERSON:0073a8c08659ca6a]"
+  },
+  "01b79dd7979f0a4a": {
+    "type": "PERSON",
+    "original": "Sarah Johnson",
+    "placeholder": "[PERSON:01b79dd7979f0a4a]"
+  }
+}
