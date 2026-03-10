@@ -1,0 +1,1957 @@
+# US Counties, Boroughs, Parishes, and Census Areas
+# Generated from Counties.txt - county names only
+abbeville county
+acadia parish
+accomack county
+ada county
+adair county
+adams county
+addison county
+adjuntas municipio
+aguada municipio
+aguadilla municipio
+aguas buenas municipio
+aibonito municipio
+aiken county
+aitkin county
+alachua county
+alamance county
+alameda county
+alamosa county
+albany county
+albemarle county
+alcona county
+alcorn county
+aleutians east borough
+aleutians west census area
+alexander county
+alexandria city
+alfalfa county
+alger county
+allamakee county
+allegan county
+allegany county
+alleghany county
+allegheny county
+allen county
+allen parish
+allendale county
+alpena county
+alpine county
+amador county
+amelia county
+amherst county
+amite county
+anchorage municipality
+anderson county
+andrew county
+andrews county
+androscoggin county
+angelina county
+anne arundel county
+anoka county
+anson county
+antelope county
+antrim county
+apache county
+appanoose county
+appling county
+appomattox county
+aransas county
+arapahoe county
+archer county
+archuleta county
+arecibo municipio
+arenac county
+arkansas county
+arlington county
+armstrong county
+aroostook county
+arroyo municipio
+arthur county
+ascension parish
+ashe county
+ashland county
+ashley county
+ashtabula county
+asotin county
+assumption parish
+atascosa county
+atchison county
+athens county
+atkinson county
+atlantic county
+atoka county
+attala county
+audrain county
+audubon county
+auglaize county
+augusta county
+aurora county
+austin county
+autauga county
+avery county
+avoyelles parish
+añasco municipio
+baca county
+bacon county
+bailey county
+baker county
+baldwin county
+ballard county
+baltimore city
+baltimore county
+bamberg county
+bandera county
+banks county
+banner county
+bannock county
+baraga county
+barber county
+barbour county
+barceloneta municipio
+barnes county
+barnstable county
+barnwell county
+barranquitas municipio
+barren county
+barron county
+barrow county
+barry county
+bartholomew county
+barton county
+bartow county
+bastrop county
+bates county
+bath county
+baxter county
+bay county
+bayamón municipio
+bayfield county
+baylor county
+beadle county
+bear lake county
+beaufort county
+beauregard parish
+beaver county
+beaverhead county
+becker county
+beckham county
+bedford county
+bee county
+belknap county
+bell county
+belmont county
+beltrami county
+ben hill county
+benewah county
+bennett county
+bennington county
+benson county
+bent county
+benton county
+benzie county
+bergen county
+berkeley county
+berks county
+berkshire county
+bernalillo county
+berrien county
+bertie county
+bethel census area
+bexar county
+bibb county
+bienville parish
+big horn county
+big stone county
+billings county
+bingham county
+black hawk county
+blackford county
+bladen county
+blaine county
+blair county
+blanco county
+bland county
+bleckley county
+bledsoe county
+blount county
+blue earth county
+boise county
+bolivar county
+bollinger county
+bon homme county
+bond county
+bonner county
+bonneville county
+boone county
+borden county
+bosque county
+bossier parish
+botetourt county
+bottineau county
+boulder county
+boundary county
+bourbon county
+bowie county
+bowman county
+box butte county
+box elder county
+boyd county
+boyle county
+bracken county
+bradford county
+bradley county
+branch county
+brantley county
+braxton county
+brazoria county
+brazos county
+breathitt county
+breckinridge county
+bremer county
+brevard county
+brewster county
+briscoe county
+bristol bay borough
+bristol city
+bristol county
+broadwater county
+bronx county
+brooke county
+brookings county
+brooks county
+broome county
+broomfield county
+broward county
+brown county
+brule county
+brunswick county
+bryan county
+buchanan county
+buckingham county
+bucks county
+buena vista city
+buena vista county
+buffalo county
+bullitt county
+bulloch county
+bullock county
+buncombe county
+bureau county
+burke county
+burleigh county
+burleson county
+burlington county
+burnet county
+burnett county
+burt county
+butler county
+butte county
+butts county
+cabarrus county
+cabell county
+cabo rojo municipio
+cache county
+caddo county
+caddo parish
+caguas municipio
+calaveras county
+calcasieu parish
+caldwell county
+caldwell parish
+caledonia county
+calhoun county
+callahan county
+callaway county
+calloway county
+calumet county
+calvert county
+camas county
+cambria county
+camden county
+cameron county
+cameron parish
+camp county
+campbell county
+camuy municipio
+canadian county
+candler county
+cannon county
+canyon county
+canóvanas municipio
+cape girardeau county
+cape may county
+carbon county
+caribou county
+carlisle county
+carlton county
+carolina municipio
+caroline county
+carroll county
+carson city
+carson county
+carter county
+carteret county
+carver county
+cascade county
+casey county
+cass county
+cassia county
+castro county
+caswell county
+catahoula parish
+catawba county
+cataño municipio
+catoosa county
+catron county
+cattaraugus county
+cavalier county
+cayey municipio
+cayuga county
+cecil county
+cedar county
+ceiba municipio
+centre county
+cerro gordo county
+chaffee county
+chambers county
+champaign county
+chariton county
+charles city county
+charles county
+charles mix county
+charleston county
+charlevoix county
+charlotte county
+charlottesville city
+charlton county
+chase county
+chatham county
+chattahoochee county
+chattooga county
+chautauqua county
+chaves county
+cheatham county
+cheboygan county
+chelan county
+chemung county
+chenango county
+cherokee county
+cherry county
+chesapeake city
+cheshire county
+chester county
+chesterfield county
+cheyenne county
+chickasaw county
+chicot county
+childress county
+chilton county
+chippewa county
+chisago county
+chittenden county
+choctaw county
+chouteau county
+chowan county
+christian county
+churchill county
+ciales municipio
+cibola county
+cidra municipio
+cimarron county
+citrus county
+clackamas county
+claiborne county
+claiborne parish
+clallam county
+clare county
+clarendon county
+clarion county
+clark county
+clarke county
+clatsop county
+clay county
+clayton county
+clear creek county
+clearfield county
+clearwater county
+cleburne county
+clermont county
+cleveland county
+clinch county
+clinton county
+cloud county
+coahoma county
+coal county
+coamo municipio
+cobb county
+cochise county
+cochran county
+cocke county
+coconino county
+codington county
+coffee county
+coffey county
+coke county
+colbert county
+cole county
+coleman county
+coles county
+colfax county
+colleton county
+collier county
+collin county
+collingsworth county
+colonial heights city
+colorado county
+colquitt county
+columbia county
+columbiana county
+columbus county
+colusa county
+comal county
+comanche county
+comerío municipio
+concho county
+concordia parish
+conecuh county
+conejos county
+contra costa county
+converse county
+conway county
+cook county
+cooke county
+cooper county
+coos county
+coosa county
+copiah county
+corozal municipio
+corson county
+cortland county
+coryell county
+coshocton county
+costilla county
+cottle county
+cotton county
+cottonwood county
+covington city
+covington county
+coweta county
+cowley county
+cowlitz county
+craig county
+craighead county
+crane county
+craven county
+crawford county
+creek county
+crenshaw county
+crisp county
+crittenden county
+crockett county
+crook county
+crosby county
+cross county
+crow wing county
+crowley county
+culberson county
+culebra municipio
+cullman county
+culpeper county
+cumberland county
+cuming county
+currituck county
+curry county
+custer county
+cuyahoga county
+dade county
+daggett county
+dakota county
+dale county
+dallam county
+dallas county
+dane county
+daniels county
+danville city
+dare county
+darke county
+darlington county
+dauphin county
+davidson county
+davie county
+daviess county
+davis county
+davison county
+dawes county
+dawson county
+day county
+de baca county
+de soto parish
+de witt county
+deaf smith county
+dearborn county
+decatur county
+deer lodge county
+defiance county
+dekalb county
+del norte county
+delaware county
+delta county
+denali borough
+dent county
+denton county
+denver county
+des moines county
+deschutes county
+desha county
+desoto county
+deuel county
+dewey county
+dewitt county
+dickens county
+dickenson county
+dickey county
+dickinson county
+dickson county
+dillingham census area
+dillon county
+dimmit county
+dinwiddie county
+district of columbia
+divide county
+dixie county
+dixon county
+doddridge county
+dodge county
+dolores county
+doniphan county
+donley county
+dooly county
+door county
+dorado municipio
+dorchester county
+dougherty county
+douglas county
+doña ana county
+drew county
+dubois county
+dubuque county
+duchesne county
+dukes county
+dundy county
+dunklin county
+dunn county
+dupage county
+duplin county
+durham county
+dutchess county
+duval county
+dyer county
+eagle county
+early county
+east baton rouge parish
+east carroll parish
+east feliciana parish
+eastland county
+eaton county
+eau claire county
+echols county
+ector county
+eddy county
+edgar county
+edgecombe county
+edgefield county
+edmonson county
+edmunds county
+edwards county
+effingham county
+el dorado county
+el paso county
+elbert county
+elk county
+elkhart county
+elko county
+elliott county
+ellis county
+ellsworth county
+elmore county
+emanuel county
+emery county
+emmet county
+emmons county
+emporia city
+erath county
+erie county
+escambia county
+esmeralda county
+essex county
+estill county
+etowah county
+eureka county
+evangeline parish
+evans county
+fairbanks north star borough
+fairfax city
+fairfax county
+fairfield county
+fajardo municipio
+fall river county
+fallon county
+falls church city
+falls county
+fannin county
+faribault county
+faulk county
+faulkner county
+fauquier county
+fayette county
+fentress county
+fergus county
+ferry county
+fillmore county
+finney county
+fisher county
+flagler county
+flathead county
+fleming county
+florence county
+florida municipio
+floyd county
+fluvanna county
+foard county
+fond du lac county
+ford county
+forest county
+forrest county
+forsyth county
+fort bend county
+foster county
+fountain county
+franklin city
+franklin county
+franklin parish
+frederick county
+fredericksburg city
+freeborn county
+freestone county
+fremont county
+fresno county
+frio county
+frontier county
+fulton county
+furnas county
+gadsden county
+gage county
+gaines county
+galax city
+gallatin county
+gallia county
+galveston county
+garden county
+garfield county
+garland county
+garrard county
+garrett county
+garvin county
+garza county
+gasconade county
+gaston county
+gates county
+geary county
+geauga county
+gem county
+genesee county
+geneva county
+gentry county
+george county
+georgetown county
+gibson county
+gila county
+gilchrist county
+giles county
+gillespie county
+gilliam county
+gilmer county
+gilpin county
+glacier county
+glades county
+gladwin county
+glascock county
+glasscock county
+glenn county
+gloucester county
+glynn county
+gogebic county
+golden valley county
+goliad county
+gonzales county
+goochland county
+goodhue county
+gooding county
+gordon county
+goshen county
+gosper county
+gove county
+grady county
+grafton county
+graham county
+grainger county
+grand county
+grand forks county
+grand isle county
+grand traverse county
+granite county
+grant county
+grant parish
+granville county
+gratiot county
+graves county
+gray county
+grays harbor county
+grayson county
+greeley county
+green county
+green lake county
+greenbrier county
+greene county
+greenlee county
+greensville county
+greenup county
+greenville county
+greenwood county
+greer county
+gregg county
+gregory county
+grenada county
+griggs county
+grimes county
+grundy county
+guadalupe county
+guayama municipio
+guayanilla municipio
+guaynabo municipio
+guernsey county
+guilford county
+gulf county
+gunnison county
+gurabo municipio
+guthrie county
+guánica municipio
+gwinnett county
+haakon county
+habersham county
+haines borough
+hale county
+halifax county
+hall county
+hamblen county
+hamilton county
+hamlin county
+hampden county
+hampshire county
+hampton city
+hampton county
+hancock county
+hand county
+hanover county
+hansford county
+hanson county
+haralson county
+hardee county
+hardeman county
+hardin county
+harding county
+hardy county
+harford county
+harlan county
+harmon county
+harnett county
+harney county
+harper county
+harris county
+harrison county
+harrisonburg city
+hart county
+hartford county
+hartley county
+harvey county
+haskell county
+hatillo municipio
+hawaii county
+hawkins county
+hayes county
+hays county
+haywood county
+heard county
+hemphill county
+hempstead county
+henderson county
+hendricks county
+hendry county
+hennepin county
+henrico county
+henry county
+herkimer county
+hernando county
+hertford county
+hettinger county
+hickman county
+hickory county
+hidalgo county
+highland county
+highlands county
+hill county
+hillsborough county
+hillsdale county
+hinds county
+hinsdale county
+hitchcock county
+hocking county
+hockley county
+hodgeman county
+hoke county
+holmes county
+holt county
+honolulu county
+hood county
+hood river county
+hooker county
+hoonah-angoon census area
+hopewell city
+hopkins county
+hormigueros municipio
+horry county
+hot spring county
+hot springs county
+houghton county
+houston county
+howard county
+howell county
+hubbard county
+hudson county
+hudspeth county
+huerfano county
+hughes county
+humacao municipio
+humboldt county
+humphreys county
+hunt county
+hunterdon county
+huntingdon county
+huntington county
+huron county
+hutchinson county
+hyde county
+iberia parish
+iberville parish
+ida county
+idaho county
+imperial county
+independence county
+indian river county
+indiana county
+ingham county
+inyo county
+ionia county
+iosco county
+iowa county
+iredell county
+irion county
+iron county
+iroquois county
+irwin county
+isabela municipio
+isabella county
+isanti county
+island county
+isle of wight county
+issaquena county
+itasca county
+itawamba county
+izard county
+jack county
+jackson county
+jackson parish
+james city county
+jasper county
+jay county
+jayuya municipio
+jeff davis county
+jefferson county
+jefferson davis county
+jefferson davis parish
+jefferson parish
+jenkins county
+jennings county
+jerauld county
+jerome county
+jersey county
+jessamine county
+jewell county
+jim hogg county
+jim wells county
+jo daviess county
+johnson county
+johnston county
+jones county
+josephine county
+juab county
+juana díaz municipio
+judith basin county
+juncos municipio
+juneau city and borough
+juneau county
+juniata county
+kalamazoo county
+kalawao county
+kalkaska county
+kanabec county
+kanawha county
+kandiyohi county
+kane county
+kankakee county
+karnes county
+kauai county
+kaufman county
+kay county
+kearney county
+kearny county
+keith county
+kemper county
+kenai peninsula borough
+kendall county
+kenedy county
+kennebec county
+kenosha county
+kent county
+kenton county
+keokuk county
+kern county
+kerr county
+kershaw county
+ketchikan gateway borough
+kewaunee county
+keweenaw county
+keya paha county
+kidder county
+kimball county
+kimble county
+king and queen county
+king county
+king george county
+king william county
+kingfisher county
+kingman county
+kings county
+kingsbury county
+kinney county
+kiowa county
+kit carson county
+kitsap county
+kittitas county
+kittson county
+klamath county
+kleberg county
+klickitat county
+knott county
+knox county
+kodiak island borough
+koochiching county
+kootenai county
+kosciusko county
+kossuth county
+kusilvak census area
+la crosse county
+la paz county
+la plata county
+la salle county
+labette county
+lac qui parle county
+lackawanna county
+laclede county
+lafayette county
+lafayette parish
+lafourche parish
+lagrange county
+lajas municipio
+lake and peninsula borough
+lake county
+lake of the woods county
+lamar county
+lamb county
+lamoille county
+lamoure county
+lampasas county
+lancaster county
+lander county
+lane county
+langlade county
+lanier county
+lapeer county
+laporte county
+laramie county
+lares municipio
+larimer county
+larue county
+las animas county
+las marías municipio
+las piedras municipio
+lasalle county
+lasalle parish
+lassen county
+latah county
+latimer county
+lauderdale county
+laurel county
+laurens county
+lavaca county
+lawrence county
+le flore county
+le sueur county
+lea county
+leake county
+leavenworth county
+lebanon county
+lee county
+leelanau county
+leflore county
+lehigh county
+lemhi county
+lenawee county
+lenoir county
+leon county
+leslie county
+letcher county
+levy county
+lewis and clark county
+lewis county
+lexington city
+lexington county
+liberty county
+licking county
+limestone county
+lincoln county
+lincoln parish
+linn county
+lipscomb county
+litchfield county
+little river county
+live oak county
+livingston county
+livingston parish
+llano county
+logan county
+long county
+lonoke county
+lorain county
+los alamos county
+los angeles county
+loudon county
+loudoun county
+louisa county
+loup county
+love county
+loving county
+lowndes county
+loíza municipio
+lubbock county
+lucas county
+luce county
+lumpkin county
+luna county
+lunenburg county
+luquillo municipio
+luzerne county
+lycoming county
+lyman county
+lynchburg city
+lynn county
+lyon county
+mackinac county
+macomb county
+macon county
+macoupin county
+madera county
+madison county
+madison parish
+magoffin county
+mahaska county
+mahnomen county
+mahoning county
+major county
+malheur county
+manassas city
+manassas park city
+manatee county
+manatí municipio
+manistee county
+manitowoc county
+marathon county
+marengo county
+maricao municipio
+maricopa county
+maries county
+marin county
+marinette county
+marion county
+mariposa county
+marlboro county
+marquette county
+marshall county
+martin county
+martinsville city
+mason county
+massac county
+matagorda county
+matanuska-susitna borough
+mathews county
+maui county
+maunabo municipio
+maury county
+maverick county
+mayagüez municipio
+mayes county
+mcclain county
+mccone county
+mccook county
+mccormick county
+mccracken county
+mccreary county
+mcculloch county
+mccurtain county
+mcdonald county
+mcdonough county
+mcdowell county
+mcduffie county
+mchenry county
+mcintosh county
+mckean county
+mckenzie county
+mckinley county
+mclean county
+mclennan county
+mcleod county
+mcminn county
+mcmullen county
+mcnairy county
+mcpherson county
+meade county
+meagher county
+mecklenburg county
+mecosta county
+medina county
+meeker county
+meigs county
+mellette county
+menard county
+mendocino county
+menifee county
+menominee county
+merced county
+mercer county
+meriwether county
+merrick county
+merrimack county
+mesa county
+metcalfe county
+miami county
+miami-dade county
+middlesex county
+midland county
+mifflin county
+milam county
+millard county
+mille lacs county
+miller county
+mills county
+milwaukee county
+miner county
+mineral county
+mingo county
+minidoka county
+minnehaha county
+missaukee county
+mississippi county
+missoula county
+mitchell county
+mobile county
+moca municipio
+modoc county
+moffat county
+mohave county
+moniteau county
+monmouth county
+mono county
+monona county
+monongalia county
+monroe county
+montague county
+montcalm county
+monterey county
+montezuma county
+montgomery county
+montmorency county
+montour county
+montrose county
+moody county
+moore county
+mora county
+morehouse parish
+morgan county
+morovis municipio
+morrill county
+morris county
+morrison county
+morrow county
+morton county
+motley county
+moultrie county
+mountrail county
+mower county
+muhlenberg county
+multnomah county
+murray county
+muscatine county
+muscogee county
+muskegon county
+muskingum county
+muskogee county
+musselshell county
+nacogdoches county
+naguabo municipio
+nance county
+nantucket county
+napa county
+naranjito municipio
+nash county
+nassau county
+natchitoches parish
+natrona county
+navajo county
+navarro county
+nelson county
+nemaha county
+neosho county
+neshoba county
+ness county
+nevada county
+new castle county
+new hanover county
+new haven county
+new kent county
+new london county
+new madrid county
+new york county
+newaygo county
+newberry county
+newport county
+newport news city
+newton county
+nez perce county
+niagara county
+nicholas county
+nicollet county
+niobrara county
+noble county
+nobles county
+nodaway county
+nolan county
+nome census area
+norfolk city
+norfolk county
+norman county
+north slope borough
+northampton county
+northumberland county
+northwest arctic borough
+norton city
+norton county
+nottoway county
+nowata county
+noxubee county
+nuckolls county
+nueces county
+nye county
+o'brien county
+oakland county
+obion county
+ocean county
+oceana county
+ochiltree county
+oconee county
+oconto county
+ogemaw county
+oglala lakota county
+ogle county
+oglethorpe county
+ohio county
+okaloosa county
+okanogan county
+okeechobee county
+okfuskee county
+oklahoma county
+okmulgee county
+oktibbeha county
+oldham county
+oliver county
+olmsted county
+oneida county
+onondaga county
+onslow county
+ontario county
+ontonagon county
+orange county
+orangeburg county
+oregon county
+orleans county
+orleans parish
+orocovis municipio
+osage county
+osborne county
+osceola county
+oscoda county
+oswego county
+otero county
+otoe county
+otsego county
+ottawa county
+otter tail county
+ouachita county
+ouachita parish
+ouray county
+outagamie county
+overton county
+owen county
+owsley county
+owyhee county
+oxford county
+ozark county
+ozaukee county
+pacific county
+page county
+palm beach county
+palo alto county
+palo pinto county
+pamlico county
+panola county
+park county
+parke county
+parker county
+parmer county
+pasco county
+pasquotank county
+passaic county
+patillas municipio
+patrick county
+paulding county
+pawnee county
+payette county
+payne county
+peach county
+pearl river county
+pecos county
+pembina county
+pemiscot county
+pend oreille county
+pender county
+pendleton county
+pennington county
+penobscot county
+peoria county
+pepin county
+perkins county
+perquimans county
+perry county
+pershing county
+person county
+petersburg borough
+petersburg city
+petroleum county
+pettis county
+peñuelas municipio
+phelps county
+philadelphia county
+phillips county
+piatt county
+pickaway county
+pickens county
+pickett county
+pierce county
+pike county
+pima county
+pinal county
+pine county
+pinellas county
+pipestone county
+piscataquis county
+pitkin county
+pitt county
+pittsburg county
+pittsylvania county
+piute county
+placer county
+plaquemines parish
+platte county
+pleasants county
+plumas county
+plymouth county
+pocahontas county
+poinsett county
+pointe coupee parish
+polk county
+ponce municipio
+pondera county
+pontotoc county
+pope county
+poquoson city
+portage county
+porter county
+portsmouth city
+posey county
+pottawatomie county
+pottawattamie county
+potter county
+powder river county
+powell county
+power county
+poweshiek county
+powhatan county
+prairie county
+pratt county
+preble county
+prentiss county
+presidio county
+presque isle county
+preston county
+price county
+prince edward county
+prince george county
+prince george's county
+prince of wales-hyder census area
+prince william county
+providence county
+prowers county
+pueblo county
+pulaski county
+pushmataha county
+putnam county
+quay county
+quebradillas municipio
+queen anne's county
+queens county
+quitman county
+rabun county
+racine county
+radford city
+rains county
+raleigh county
+ralls county
+ramsey county
+randall county
+randolph county
+rankin county
+ransom county
+rapides parish
+rappahannock county
+ravalli county
+rawlins county
+ray county
+reagan county
+real county
+red lake county
+red river county
+red river parish
+red willow county
+redwood county
+reeves county
+refugio county
+reno county
+rensselaer county
+renville county
+republic county
+reynolds county
+rhea county
+rice county
+rich county
+richardson county
+richland county
+richland parish
+richmond city
+richmond county
+riley county
+rincón municipio
+ringgold county
+rio arriba county
+rio blanco county
+rio grande county
+ripley county
+ritchie county
+riverside county
+roane county
+roanoke city
+roanoke county
+roberts county
+robertson county
+robeson county
+rock county
+rock island county
+rockbridge county
+rockcastle county
+rockdale county
+rockingham county
+rockland county
+rockwall county
+roger mills county
+rogers county
+rolette county
+rooks county
+roosevelt county
+roscommon county
+roseau county
+rosebud county
+ross county
+routt county
+rowan county
+runnels county
+rush county
+rusk county
+russell county
+rutherford county
+rutland county
+río grande municipio
+sabana grande municipio
+sabine county
+sabine parish
+sac county
+sacramento county
+sagadahoc county
+saginaw county
+saguache county
+salem city
+salem county
+salinas municipio
+saline county
+salt lake county
+saluda county
+sampson county
+san augustine county
+san benito county
+san bernardino county
+san diego county
+san francisco county
+san germán municipio
+san jacinto county
+san joaquin county
+san juan county
+san juan municipio
+san lorenzo municipio
+san luis obispo county
+san mateo county
+san miguel county
+san patricio county
+san saba county
+san sebastián municipio
+sanborn county
+sanders county
+sandoval county
+sandusky county
+sangamon county
+sanilac county
+sanpete county
+santa barbara county
+santa clara county
+santa cruz county
+santa fe county
+santa isabel municipio
+santa rosa county
+sarasota county
+saratoga county
+sargent county
+sarpy county
+sauk county
+saunders county
+sawyer county
+schenectady county
+schleicher county
+schley county
+schoharie county
+schoolcraft county
+schuyler county
+schuylkill county
+scioto county
+scotland county
+scott county
+scotts bluff county
+screven county
+scurry county
+searcy county
+sebastian county
+sedgwick county
+seminole county
+seneca county
+sequatchie county
+sequoyah county
+sevier county
+seward county
+shackelford county
+shannon county
+sharkey county
+sharp county
+shasta county
+shawano county
+shawnee county
+sheboygan county
+shelby county
+shenandoah county
+sherburne county
+sheridan county
+sherman county
+shiawassee county
+shoshone county
+sibley county
+sierra county
+silver bow county
+simpson county
+sioux county
+siskiyou county
+sitka city and borough
+skagit county
+skagway municipality
+skamania county
+slope county
+smith county
+smyth county
+snohomish county
+snyder county
+socorro county
+solano county
+somerset county
+somervell county
+sonoma county
+southampton county
+southeast fairbanks census area
+spalding county
+spartanburg county
+spencer county
+spink county
+spokane county
+spotsylvania county
+st. bernard parish
+st. charles county
+st. charles parish
+st. clair county
+st. croix county
+st. francis county
+st. francois county
+st. helena parish
+st. james parish
+st. john the baptist parish
+st. johns county
+st. joseph county
+st. landry parish
+st. lawrence county
+st. louis city
+st. louis county
+st. lucie county
+st. martin parish
+st. mary parish
+st. mary's county
+st. tammany parish
+stafford county
+stanislaus county
+stanley county
+stanly county
+stanton county
+stark county
+starke county
+starr county
+staunton city
+ste. genevieve county
+stearns county
+steele county
+stephens county
+stephenson county
+sterling county
+steuben county
+stevens county
+stewart county
+stillwater county
+stoddard county
+stokes county
+stone county
+stonewall county
+storey county
+story county
+strafford county
+stutsman county
+sublette county
+suffolk city
+suffolk county
+sullivan county
+sully county
+summers county
+summit county
+sumner county
+sumter county
+sunflower county
+surry county
+susquehanna county
+sussex county
+sutter county
+sutton county
+suwannee county
+swain county
+sweet grass county
+sweetwater county
+swift county
+swisher county
+switzerland county
+talbot county
+taliaferro county
+talladega county
+tallahatchie county
+tallapoosa county
+tama county
+taney county
+tangipahoa parish
+taos county
+tarrant county
+tate county
+tattnall county
+taylor county
+tazewell county
+tehama county
+telfair county
+teller county
+tensas parish
+terrebonne parish
+terrell county
+terry county
+teton county
+texas county
+thayer county
+thomas county
+throckmorton county
+thurston county
+tift county
+tillamook county
+tillman county
+tioga county
+tippah county
+tippecanoe county
+tipton county
+tishomingo county
+titus county
+toa alta municipio
+toa baja municipio
+todd county
+tolland county
+tom green county
+tompkins county
+tooele county
+toole county
+toombs county
+torrance county
+towner county
+towns county
+traill county
+transylvania county
+traverse county
+travis county
+treasure county
+trego county
+trempealeau county
+treutlen county
+trigg county
+trimble county
+trinity county
+tripp county
+troup county
+trousdale county
+trujillo alto municipio
+trumbull county
+tucker county
+tulare county
+tulsa county
+tunica county
+tuolumne county
+turner county
+tuscaloosa county
+tuscarawas county
+tuscola county
+twiggs county
+twin falls county
+tyler county
+tyrrell county
+uinta county
+uintah county
+ulster county
+umatilla county
+unicoi county
+union county
+union parish
+upshur county
+upson county
+upton county
+utah county
+utuado municipio
+uvalde county
+val verde county
+valdez-cordova census area
+valencia county
+valley county
+van buren county
+van wert county
+van zandt county
+vance county
+vanderburgh county
+vega alta municipio
+vega baja municipio
+venango county
+ventura county
+vermilion county
+vermilion parish
+vermillion county
+vernon county
+vernon parish
+victoria county
+vieques municipio
+vigo county
+vilas county
+villalba municipio
+vinton county
+virginia beach city
+volusia county
+wabash county
+wabasha county
+wabaunsee county
+wadena county
+wagoner county
+wahkiakum county
+wake county
+wakulla county
+waldo county
+walker county
+walla walla county
+wallace county
+waller county
+wallowa county
+walsh county
+walthall county
+walton county
+walworth county
+wapello county
+ward county
+ware county
+warren county
+warrick county
+wasatch county
+wasco county
+waseca county
+washakie county
+washburn county
+washington county
+washington parish
+washita county
+washoe county
+washtenaw county
+watauga county
+watonwan county
+waukesha county
+waupaca county
+waushara county
+wayne county
+waynesboro city
+weakley county
+webb county
+weber county
+webster county
+webster parish
+weld county
+wells county
+west baton rouge parish
+west carroll parish
+west feliciana parish
+westchester county
+westmoreland county
+weston county
+wetzel county
+wexford county
+wharton county
+whatcom county
+wheatland county
+wheeler county
+white county
+white pine county
+whiteside county
+whitfield county
+whitley county
+whitman county
+wibaux county
+wichita county
+wicomico county
+wilbarger county
+wilcox county
+wilkes county
+wilkin county
+wilkinson county
+will county
+willacy county
+williams county
+williamsburg city
+williamsburg county
+williamson county
+wilson county
+winchester city
+windham county
+windsor county
+winkler county
+winn parish
+winnebago county
+winneshiek county
+winona county
+winston county
+wirt county
+wise county
+wolfe county
+wood county
+woodbury county
+woodford county
+woodruff county
+woods county
+woodson county
+woodward county
+worcester county
+worth county
+wrangell city and borough
+wright county
+wyandot county
+wyandotte county
+wyoming county
+wythe county
+yabucoa municipio
+yadkin county
+yakima county
+yakutat city and borough
+yalobusha county
+yamhill county
+yancey county
+yankton county
+yates county
+yauco municipio
+yavapai county
+yazoo county
+yell county
+yellow medicine county
+yellowstone county
+yoakum county
+yolo county
+york county
+young county
+yuba county
+yukon-koyukuk census area
+yuma county
+zapata county
+zavala county
+ziebach county
