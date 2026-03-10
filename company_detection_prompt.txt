@@ -1,0 +1,18 @@
+Look for company names in the text that end with these whitelisted business terms:
+
+BUSINESS TERMS: association, business, businesses, co, companies, company, consulting, corp, corporation, development, enterprises, firm, firms, fund, funds, global, group, groups, holdings, inc, incorporated, industries, international, liability, limited, llc, ltd, management, national, operations, partners, partnership, services, solutions, systems, technologies, trust
+
+Find patterns like:
+- [Name] + [Business Term] (e.g., "Smith Industries", "Johnson LLC")
+- [Name] + [Name] + [Business Term] (e.g., "Smith Johnson Corp")
+
+Return ONLY the complete company names found, one per line. No explanations.
+
+Examples of what to find:
+- Connor Industries
+- Smith LLC  
+- Johnson Development
+- Williams Group
+
+TEXT:
+[DOCUMENT_TEXT_HERE]
