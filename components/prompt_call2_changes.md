@@ -74,9 +74,21 @@ Respond with valid JSON only:
 ```
 
 ## CRITICAL RULES:
-- `original_text` must be an exact substring from the NDA, at least 40 characters, unique in the document. Never use short generic phrases.
+
+### Core categories (1-9): Full replacement
+- `original_text` must be an exact substring from the NDA, at least 40 characters, unique in the document.
 - `replacement_text` must be full proper legal language using the document's own defined terms.
 - For INSERTIONS: set `original_text` to the end of the clause where new language goes. Set `replacement_text` to that same ending text PLUS the new language appended.
+
+### Circumstantial categories (C1-C9): Minimal edits
+- `original_text` should be ONLY the specific phrase being changed — as few words as possible while remaining unique in the document.
+- `replacement_text` should be ONLY the replacement phrase — do not rewrite the surrounding sentence.
+- Example: original_text="attorney's fees" → replacement_text="reasonable attorney's fees"
+- Example: original_text="take all steps" → replacement_text="take all commercially reasonable steps"
+- Example: original_text="facsimile" → replacement_text="facsimile or electronic"
+- Keep these surgical — change the minimum words needed.
+
+### General rules:
 - Do NOT include tab characters — replace tabs with spaces.
 - Only generate patterns for items that clear the threshold.
 - If nothing clears the threshold, return empty patterns array.
