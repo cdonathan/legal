@@ -92,26 +92,40 @@ class SmartAttorneySystem:
             return None
 
     def redact_docx_pii(self, docx_path, base_name):
+        """Redact PII directly in a copy of the DOCX, preserving formatting."""
         try:
+            redacted_path = f"/tmp/{base_name}_redacted.docx"
+            mapping_path = f"/tmp/{base_name}_mapping.json"
+            shutil.copy2(docx_path, redacted_path)
+
             text_content = self.convert_with_libreoffice(docx_path)
             if not text_content:
                 return None, None
-            redacted_text, hex_mapping = self.apply_hex_redaction(text_content)
-            redacted_count = len(hex_mapping)
 
+            _, hex_mapping = self.apply_hex_redaction(text_content)
+            if not hex_mapping:
+                print(f"   ✓ No PII found to redact")
+                with open(mapping_path, 'w') as f:
+                    json.dump({}, f)
+                return redacted_path, mapping_path
+
+            # Apply redactions in the DOCX preserving formatting
             from docx import Document
-            new_doc = Document()
-            for line in redacted_text.split('\n'):
-                if line.strip():
-                    new_doc.add_paragraph(line.strip())
+            doc = Document(redacted_path)
+            for hex_id, data in hex_mapping.items():
+                original = data['original']
+                placeholder = data['placeholder']
+                for para in doc.paragraphs:
+                    if original in para.text:
+                        for run in para.runs:
+                            if original in run.text:
+                                run.text = run.text.replace(original, placeholder)
 
-            redacted_path = f"/tmp/{base_name}_redacted.docx"
-            mapping_path = f"/tmp/{base_name}_mapping.json"
-            new_doc.save(redacted_path)
+            doc.save(redacted_path)
             with open(mapping_path, 'w') as f:
                 json.dump(hex_mapping, f, indent=2)
 
-            print(f"   ✓ Redacted {redacted_count} PII items with hex mapping")
+            print(f"   ✓ Redacted {len(hex_mapping)} PII items with hex mapping")
             return redacted_path, mapping_path
         except Exception as e:
             print(f"   ❌ Redaction failed: {e}")
@@ -464,10 +478,10 @@ Respond with valid JSON only — no markdown fencing, no commentary."""
             print(f"   ❌ Pattern error: {e}")
             return False
 
-    def create_redlined_document(self, instructions, original_path, base_name):
+    def create_redlined_document(self, instructions, original_path, base_name, mapping_path):
         if not instructions or not instructions.get('patterns'):
             print("   ⚠️ No changes recommended — document is adequate")
-            return None, None
+            return {}
 
         try:
             print("   🔄 Starting LibreOffice for redlining...")
@@ -524,7 +538,6 @@ Respond with valid JSON only — no markdown fencing, no commentary."""
                     if "reasonable" not in found.getString().lower():
                         ctx = found.getText()
                         cursor = ctx.createTextCursorByRange(found)
-                        # Check preceding word isn't already "reasonable"
                         cursor.goLeft(12, True)
                         preceding = cursor.getString().lower()
                         if "reasonable" not in preceding:
@@ -532,34 +545,49 @@ Respond with valid JSON only — no markdown fencing, no commentary."""
                             print(f"   ✓ Post-processing: added 'reasonable' before '{phrase}'")
                     found = document.findNext(found.getEnd(), search)
 
-            # Save redlined version
-            redlined_path = os.path.join(OUTPUT_DIR, f"{base_name}_Smart_Attorney_Redlined.docx")
-            redlined_url = uno.systemPathToFileUrl(os.path.abspath(redlined_path))
             save_props = (PropertyValue("FilterName", 0, "MS Word 2007 XML", 0),)
-            document.storeAsURL(redlined_url, save_props)
-            print(f"   ✅ Redlined: {os.path.basename(redlined_path)}")
+            outputs = {}
 
-            # Accept all changes for clean version
-            changes_accepted = 0
+            # 1. Redacted + Redlined (PII removed, track changes visible)
+            p = os.path.join(OUTPUT_DIR, f"{base_name}_Redacted_Redlined.docx")
+            document.storeAsURL(uno.systemPathToFileUrl(os.path.abspath(p)), save_props)
+            outputs['redacted_redlined'] = p
+            print(f"   ✅ Redacted+Redlined: {os.path.basename(p)}")
+
+            # 2. Reconstructed + Redlined (PII restored, track changes visible)
+            p2 = os.path.join(OUTPUT_DIR, f"{base_name}_Reconstructed_Redlined.docx")
+            shutil.copy2(p, p2)
+            self.restore_pii_in_docx(p2, mapping_path)
+            outputs['reconstructed_redlined'] = p2
+            print(f"   ✅ Reconstructed+Redlined: {os.path.basename(p2)}")
+
+            # Accept all changes for clean versions
             try:
                 redlines = document.getRedlines()
                 for i in range(redlines.getCount()):
                     redlines.getByIndex(0).accept()
-                    changes_accepted += 1
             except Exception as e:
                 print(f"   ⚠️ Error accepting changes: {e}")
 
-            clean_path = os.path.join(OUTPUT_DIR, f"{base_name}_Smart_Attorney_Clean.docx")
-            clean_url = uno.systemPathToFileUrl(os.path.abspath(clean_path))
-            document.storeAsURL(clean_url, save_props)
-            print(f"   ✅ Clean: {os.path.basename(clean_path)} ({changes_accepted} changes accepted)")
+            # 3. Redacted + Clean (PII removed, changes accepted)
+            p3 = os.path.join(OUTPUT_DIR, f"{base_name}_Redacted_Clean.docx")
+            document.storeAsURL(uno.systemPathToFileUrl(os.path.abspath(p3)), save_props)
+            outputs['redacted_clean'] = p3
+            print(f"   ✅ Redacted+Clean: {os.path.basename(p3)}")
+
+            # 4. Reconstructed + Clean (PII restored, changes accepted)
+            p4 = os.path.join(OUTPUT_DIR, f"{base_name}_Reconstructed_Clean.docx")
+            shutil.copy2(p3, p4)
+            self.restore_pii_in_docx(p4, mapping_path)
+            outputs['reconstructed_clean'] = p4
+            print(f"   ✅ Reconstructed+Clean: {os.path.basename(p4)}")
 
             document.close(True)
-            return redlined_path, clean_path
+            return outputs
 
         except Exception as e:
             print(f"   ❌ LibreOffice redlining failed: {e}")
-            return None, None
+            return {}
         finally:
             time.sleep(1)
             os.system("pkill -f 'soffice'")
@@ -569,8 +597,8 @@ Respond with valid JSON only — no markdown fencing, no commentary."""
         print(f"🔄 Smart Attorney v2: {os.path.basename(input_path)}")
         print(f"{'='*60}")
 
-        # Step 0: Convert to DOCX if needed
-        print("\n[Step 0] Converting to DOCX...")
+        # Step 1: File conversion
+        print("\n[Step 1] Converting to DOCX...")
         docx_path = self.convert_to_docx(input_path)
         if not docx_path:
             print("❌ Could not convert to DOCX")
@@ -578,22 +606,20 @@ Respond with valid JSON only — no markdown fencing, no commentary."""
 
         base_name = os.path.splitext(os.path.basename(docx_path))[0]
 
-        # Step 1: Redact PII
-        print("\n[Step 1] Redacting PII...")
+        # Step 2: Redaction with mapping
+        print("\n[Step 2] Redacting PII...")
         redacted_path, mapping_path = self.redact_docx_pii(docx_path, base_name)
         if not redacted_path:
             print("❌ PII redaction failed")
             return
 
-        # Step 2: Convert redacted doc to text for AI analysis
-        print("\n[Step 2] Extracting text...")
+        # Extract text from redacted doc for AI
+        print("\n[Step 3] AI attorney assessment...")
         text_content = self.convert_with_libreoffice(redacted_path)
         if not text_content:
             print("❌ Text extraction failed")
             return
 
-        # Step 3: AI assessment and analysis
-        print("\n[Step 3] AI attorney assessment...")
         analysis_file, instructions = self.smart_attorney_analysis(text_content, base_name)
         if not instructions:
             print("❌ AI analysis failed")
@@ -609,36 +635,26 @@ Respond with valid JSON only — no markdown fencing, no commentary."""
             print(f"   2. Analysis: {os.path.basename(analysis_file)}")
             return
 
-        # Step 4: Apply redlines to the REDACTED docx (AI text matches redacted version)
-        print("\n[Step 4] Applying redlines to redacted document...")
-        redlined_path, clean_path = self.create_redlined_document(instructions, redacted_path, base_name)
+        # Step 4: Redlining + Output creation
+        print("\n[Step 4] Applying redlines and creating outputs...")
+        outputs = self.create_redlined_document(instructions, redacted_path, base_name, mapping_path)
 
-        # Step 5: Restore PII in the redlined and clean documents
-        print("\n[Step 5] Restoring PII in output documents...")
-        if redlined_path:
-            self.restore_pii_in_docx(redlined_path, mapping_path)
-        if clean_path:
-            self.restore_pii_in_docx(clean_path, mapping_path)
-
-        # Save all outputs
-        print("\n[Step 6] Saving outputs...")
-        original_final = os.path.join(OUTPUT_DIR, f"{base_name}_Original.docx")
-        shutil.copy2(docx_path, original_final)
-
-        mapping_final = os.path.join(OUTPUT_DIR, f"{base_name}_Mapping.json")
-        shutil.copy2(mapping_path, mapping_final)
+        # Step 5: Save original + mapping
+        print("\n[Step 5] Saving final outputs...")
+        shutil.copy2(docx_path, os.path.join(OUTPUT_DIR, f"{base_name}_Original.docx"))
+        shutil.copy2(mapping_path, os.path.join(OUTPUT_DIR, f"{base_name}_Mapping.json"))
 
         print(f"\n{'='*60}")
         print(f"✅ COMPLETE — Output: {OUTPUT_DIR}")
         print(f"{'='*60}")
-        print(f"   1. Original:  {base_name}_Original.docx")
-        print(f"   2. Analysis:  {os.path.basename(analysis_file)}")
-        print(f"   3. Redlined:  {os.path.basename(redlined_path) if redlined_path else 'FAILED'}")
-        print(f"   4. Clean:     {os.path.basename(clean_path) if clean_path else 'FAILED'}")
-        print(f"   5. Mapping:   {base_name}_Mapping.json")
-        print(f"   6. Raw AI:    {base_name}_raw_ai_response.txt")
-        print(f"\n🧠 Assessment: {assessment.get('overall_quality', '?')} quality, {assessment.get('changes_needed', '?')} changes")
-        print(f"🎯 Patterns applied: {len(instructions.get('patterns', []))}")
+        print(f"   1. Original:               {base_name}_Original.docx")
+        print(f"   2. Analysis:               {os.path.basename(analysis_file)}")
+        print(f"   3. Redacted+Redlined:      {os.path.basename(outputs.get('redacted_redlined', 'FAILED'))}")
+        print(f"   4. Redacted+Clean:         {os.path.basename(outputs.get('redacted_clean', 'FAILED'))}")
+        print(f"   5. Reconstructed+Redlined: {os.path.basename(outputs.get('reconstructed_redlined', 'FAILED'))}")
+        print(f"   6. Reconstructed+Clean:    {os.path.basename(outputs.get('reconstructed_clean', 'FAILED'))}")
+        print(f"   7. Mapping:                {base_name}_Mapping.json")
+        print(f"\n🎯 Patterns applied: {len(instructions.get('patterns', []))}")
 
 
 def main():
