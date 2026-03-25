@@ -420,18 +420,22 @@ Respond with valid JSON only — no markdown fencing, no commentary."""
                 return False
 
             search = document.createSearchDescriptor()
-            search.setSearchString(original_text)
             search.setPropertyValue("SearchRegularExpression", False)
             search.setPropertyValue("SearchCaseSensitive", False)
 
-            found = document.findFirst(search)
-            if found:
-                found.setString(replacement_text)
-                print(f"   ✓ Line {line_num}: Applied '{pattern.get('title', '')[:50]}'")
-                return True
+            # Normalize tabs/whitespace in original_text for matching
+            normalized = re.sub(r'[\t]+', ' ', original_text).strip()
 
-            # Try first 8 words as fallback
-            words = original_text.split()[:8]
+            for search_str in [original_text, normalized]:
+                search.setSearchString(search_str)
+                found = document.findFirst(search)
+                if found:
+                    found.setString(replacement_text)
+                    print(f"   ✓ Line {line_num}: Applied '{pattern.get('title', '')[:50]}'")
+                    return True
+
+            # Fallback: first 8 words of normalized text
+            words = normalized.split()[:8]
             search_phrase = ' '.join(words)
             search.setSearchString(search_phrase)
             found = document.findFirst(search)

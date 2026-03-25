@@ -14,7 +14,7 @@ def main():
     folder = sys.argv[1] if len(sys.argv) > 1 else INPUT_DIR
     os.makedirs(COMPLETED_DIR, exist_ok=True)
     
-    files = sorted(glob.glob(os.path.join(folder, "*.doc*")) + glob.glob(os.path.join(folder, "*.pdf")) + glob.glob(os.path.join(folder, "*.txt")) + glob.glob(os.path.join(folder, "*.mhtml")))
+    files = sorted(f for f in glob.glob(os.path.join(folder, "*.doc*")) + glob.glob(os.path.join(folder, "*.pdf")) + glob.glob(os.path.join(folder, "*.txt")) + glob.glob(os.path.join(folder, "*.mhtml")) if ':Zone.Identifier' not in f)
     
     if not files:
         print(f"No pre-redline files found in {folder}")
