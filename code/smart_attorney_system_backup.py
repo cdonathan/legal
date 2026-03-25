@@ -251,6 +251,62 @@ Respond with valid JSON only — no markdown fencing, no commentary."""
                 if isinstance(v, dict) and v.get('score', 0) > 0:
                     print(f"      {k}: {v['score']} — {v.get('reason', '')}")
 
+            # === THRESHOLD ENFORCEMENT (Python, not AI) ===
+            scores = {}
+            for k, v in analysis.get('analysis', {}).items():
+                if isinstance(v, dict):
+                    scores[k] = v.get('score', 0)
+                else:
+                    scores[k] = v
+
+            items_8_plus = [k for k, s in scores.items() if s >= 8]
+            items_5_7 = [k for k, s in scores.items() if 5 <= s <= 7]
+            items_1_4 = [k for k, s in scores.items() if 1 <= s <= 4]
+
+            applied_items = list(items_8_plus)  # Always change 8-10
+
+            # 5-7: change if total >= 15, or 3+ items in 5-7, or any item 8+
+            if items_5_7 and (total >= 15 or len(items_5_7) >= 3 or len(items_8_plus) > 0):
+                applied_items.extend(items_5_7)
+
+            # 1-4: change only if total >= 20 or 2+ items 8+
+            if items_1_4 and (total >= 20 or len(items_8_plus) >= 2):
+                applied_items.extend(items_1_4)
+
+            threshold_result = {
+                'items_8_plus': items_8_plus,
+                'items_5_7': items_5_7,
+                'items_1_4': items_1_4,
+                'applied_items': applied_items
+            }
+
+            print(f"   📋 Threshold: {len(applied_items)} items qualify for changes")
+            for item in applied_items:
+                print(f"      ✓ {item} (score {scores.get(item, '?')})")
+
+            if not applied_items:
+                print("   ✅ No items clear threshold — document is adequate")
+                instructions = {'patterns': [], 'document_assessment': {
+                    'confidential_info_term': analysis.get('terminology', {}).get('confidential_info_term', 'N/A'),
+                    'recipient_term': analysis.get('terminology', {}).get('recipient_term', 'N/A'),
+                    'discloser_term': analysis.get('terminology', {}).get('discloser_term', 'N/A'),
+                    'representatives_term': analysis.get('terminology', {}).get('representatives_term', 'N/A'),
+                    'sophistication': analysis.get('sophistication', 'N/A'),
+                    'total_score': total,
+                    'changes_needed': 'none'
+                }}
+                analysis_file = os.path.join(OUTPUT_DIR, f"{base_name}_Smart_Attorney_Analysis.md")
+                with open(analysis_file, 'w') as f:
+                    f.write(f"# Smart Attorney Analysis: {base_name}\n\nNo items cleared threshold.\n")
+                return analysis_file, instructions
+
+            # Build applied items detail for Call 2
+            applied_detail = []
+            for item in applied_items:
+                entry = analysis.get('analysis', {}).get(item, {})
+                applied_detail.append(f"- {item}: score {scores.get(item, '?')} — {entry.get('reason', 'N/A')}")
+            applied_items_text = '\n'.join(applied_detail)
+
             # === CALL 2: Generate Changes ===
             print(f"   🔄 Call 2: Generating changes...")
             start = datetime.now()
@@ -261,6 +317,9 @@ CURRENT DATE: {today}
 
 ANALYSIS FROM CALL 1:
 {analysis_text}
+
+ITEMS TO CHANGE (determined by threshold rules — generate a pattern for EACH of these and ONLY these):
+{applied_items_text}
 
 LINE-NUMBERED NDA:
 {numbered_text}
