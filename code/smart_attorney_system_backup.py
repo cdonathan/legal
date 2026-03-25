@@ -152,7 +152,7 @@ class SmartAttorneySystem:
             (r'\b\d+\s+[A-Z][a-z]+\s+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Court|Ct|Boulevard|Blvd)(?:\s*,\s*[A-Z][a-z]+)?(?:\s*,\s*[A-Z]{2})?\s*\d{5}?\b', 'ADDRESS'),
             (r'\b[A-Z][a-z]+\s+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Court|Ct|Boulevard|Blvd)\b', 'STREET'),
             (r'\b\d{5}(?:-\d{4})?\b', 'ZIP'),
-            (r'\b[A-Z][A-Za-z\s&]+(?:LLC|Inc|Corp|Corporation|Company|Co\.)\b', 'COMPANY'),
+            (r'\b[A-Z][A-Za-z\s&]{1,30}(?:LLC|Inc|Corp|Corporation|Company|Co\.)\b', 'COMPANY'),
             (r'\b\d{1,2}/\d{1,2}/\d{4}\b', 'DATE'),
             (r'\b\d{1,2}-\d{1,2}-\d{4}\b', 'DATE'),
             (r'\b[A-Z][a-z]+ [A-Z][a-z]+\b', 'PERSON'),
@@ -164,10 +164,10 @@ class SmartAttorneySystem:
             for match in matches:
                 original = match.group()
 
-                # For PERSON matches, skip if any word is in the whitelist
+                # For PERSON matches, skip only if ALL words are in the whitelist
                 if label == 'PERSON':
                     words = original.split()
-                    if any(w.lower() in whitelist for w in words):
+                    if all(w.lower() in whitelist for w in words):
                         continue
 
                 hex_id = secrets.token_hex(8)
@@ -194,10 +194,20 @@ class SmartAttorneySystem:
             for para in doc.paragraphs:
                 for hex_id, data in hex_mapping.items():
                     if data['placeholder'] in para.text:
+                        # Try run-level replacement first
+                        found_in_run = False
                         for run in para.runs:
                             if data['placeholder'] in run.text:
                                 run.text = run.text.replace(data['placeholder'], data['original'])
+                                found_in_run = True
                                 restored += 1
+                        # Fallback: placeholder split across runs — merge into first run
+                        if not found_in_run and para.runs:
+                            full = para.text.replace(data['placeholder'], data['original'])
+                            para.runs[0].text = full
+                            for run in para.runs[1:]:
+                                run.text = ""
+                            restored += 1
             doc.save(docx_path)
             print(f"   ✓ Restored {restored} PII items in {os.path.basename(docx_path)}")
             return True
