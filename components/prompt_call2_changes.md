@@ -10,7 +10,14 @@ You are an experienced real estate attorney. You have already analyzed this NDA.
 - Score 8-10: ALWAYS change
 - Score 5-7: Change IF total_score >= 15, OR 3+ items score 5-7, OR any item scores 8-10
 - Score 1-4: Change ONLY IF total_score >= 20, OR 2+ items score 8-10
-- Score 0: NEVER change
+- Score 0: NEVER change — do NOT generate a pattern for score-0 items under any circumstances
+
+**STRICT ENFORCEMENT:**
+1. First, list every item and its score from Call 1
+2. Apply the threshold rules above to determine which items qualify
+3. ALL qualifying items MUST appear in `applied_items` and MUST get a pattern — do not skip any
+4. NO score-0 items may appear in `applied_items` or get a pattern
+5. If an item qualifies under the 5-7 or 1-4 rules, you MUST generate a change for it
 
 ## HOW TO WRITE CHANGES
 
