@@ -40,12 +40,15 @@ Look for who the Recipient can share information with.
 
 QUOTE the sharing/representatives language, or state NOT FOUND.
 
+Key roles to check for: investors, partners, members, managers, directors, officers, attorneys, accountants, advisors, lenders, brokers, consultants. The financial players (investors, partners, members, managers, directors) are ESSENTIAL for closing real estate transactions — their absence is a serious gap, not a minor omission.
+
 Scoring:
 - 10 = No sharing rights at all
 - 8 = Very narrow (3 or fewer roles)
-- 6 = Moderate (4-7 roles), missing key ones like investors/partners
-- 3 = Broad but missing 1-2 minor roles
-- 0 = Broad list or catch-all language
+- 7 = Moderate list but missing financial players (investors, partners, members, managers, directors)
+- 5 = Has some financial players but missing 2+ key ones
+- 3 = Broad list missing only 1 minor role
+- 0 = Broad list with financial players or catch-all language
 
 ### Category 3: Sub-Agreement Requirements
 Look for what Representatives must do — sign a separate agreement? Be "bound by"? Be "informed of"?
@@ -118,6 +121,22 @@ Scoring:
 - 3 = Exception with notice but no cooperation/protective order language
 - 0 = Full exception with notice and cooperation provisions
 
+### Category 9: Remedies Balance
+Look for the remedies/damages section. Assess whether it is disproportionately punitive against the Recipient.
+
+**Red flags:** "any and all forms and types of remuneration", "consequential and incidental damages", "all expenses incurred in enforcing", open-ended liability with no cap, no injunctive relief provision, or injunctive relief that requires bond posting.
+
+**Favorable:** Balanced injunctive relief without bond requirement, damages limited to actual breach, no open-ended liability.
+
+QUOTE the remedies language, or state NOT FOUND.
+
+Scoring:
+- 9 = Highly punitive: open-ended damages + no injunctive relief + no bond waiver
+- 7 = Punitive damages clause present (open-ended or uncapped) without injunctive relief
+- 5 = Injunctive relief present but requires bond, OR punitive damages with some limits
+- 2 = Injunctive relief present without bond, but damages still broad
+- 0 = Balanced remedies: injunctive relief without bond, damages limited to breach
+
 ### Circumstantial Categories (score 0 if no relevant clause exists)
 
 - C1 Electronic Signatures: Does it mention facsimile/counterparts? Score 4 if facsimile only, 0 if already electronic or no clause.
@@ -127,9 +146,8 @@ Scoring:
 - C5 Personal Financial Disclosure: Requires personal financial statements? Score 5 if yes, 0 otherwise.
 - C6 Signature Page Notation: Has signature block without notation? Score 3 if yes, 0 otherwise.
 - C7 Commercial Reasonableness: Does the NDA use absolute obligation language like "take all steps", "shall ensure", or "best efforts" without a reasonableness qualifier? Score 4 if yes, 0 otherwise.
-- C8 Injunctive Relief Balance: Is injunctive relief missing, or does the clause require bond posting? Score 4 if yes, 0 otherwise.
-- C9 Defined Term Consistency: Are defined terms used with mixed capitalization (e.g., "Confidential Information" vs "confidential information" for the same concept)? Score 3 if yes, 0 otherwise.
-- C10 Business Purpose Expansion: Is the stated purpose narrowly worded (e.g., "participation, financing") without including "purchasing" or equivalent acquisition language? Score 4 if yes, 0 otherwise.
+- C8 Defined Term Consistency: Are defined terms used with mixed capitalization (e.g., "Confidential Information" vs "confidential information" for the same concept)? Score 3 if yes, 0 otherwise.
+- C9 Business Purpose Expansion: Is the stated purpose narrowly worded (e.g., "participation, financing") without including "purchasing" or equivalent acquisition language? Score 4 if yes, 0 otherwise.
 
 ## OUTPUT FORMAT
 
@@ -186,6 +204,11 @@ Respond with valid JSON only:
       "score": 0,
       "reason": "explanation"
     },
+    "9_remedies": {
+      "quoted_language": "exact quote or NOT FOUND",
+      "score": 0,
+      "reason": "explanation"
+    },
     "c1_electronic_sig": {"score": 0, "reason": "explanation"},
     "c2_reasonable_fees": {"score": 0, "reason": "explanation"},
     "c3_narrow_indemnification": {"score": 0, "reason": "explanation"},
@@ -193,9 +216,8 @@ Respond with valid JSON only:
     "c5_personal_financial": {"score": 0, "reason": "explanation"},
     "c6_signature_notation": {"score": 0, "reason": "explanation"},
     "c7_commercial_reasonableness": {"score": 0, "reason": "explanation"},
-    "c8_injunctive_relief": {"score": 0, "reason": "explanation"},
-    "c9_defined_term_consistency": {"score": 0, "reason": "explanation"},
-    "c10_business_purpose": {"score": 0, "reason": "explanation"}
+    "c8_defined_term_consistency": {"score": 0, "reason": "explanation"},
+    "c9_business_purpose": {"score": 0, "reason": "explanation"}
   },
   "total_score": 17,
   "sophistication": "simple|moderate|complex"
