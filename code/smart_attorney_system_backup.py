@@ -510,6 +510,28 @@ Respond with valid JSON only — no markdown fencing, no commentary."""
 
             print(f"   📊 Applied {applied}/{len(instructions['patterns'])} patterns")
 
+            # Post-processing: deterministic rules applied directly
+            search = document.createSearchDescriptor()
+            search.setPropertyValue("SearchRegularExpression", False)
+            search.setPropertyValue("SearchCaseSensitive", False)
+            search.setPropertyValue("SearchWords", False)
+
+            # Rule: "attorney's fees" → "reasonable attorney's fees"
+            for phrase in ["attorney's fees", "attorneys' fees", "attorneys fees"]:
+                search.setSearchString(phrase)
+                found = document.findFirst(search)
+                while found:
+                    if "reasonable" not in found.getString().lower():
+                        ctx = found.getText()
+                        cursor = ctx.createTextCursorByRange(found)
+                        # Check preceding word isn't already "reasonable"
+                        cursor.goLeft(12, True)
+                        preceding = cursor.getString().lower()
+                        if "reasonable" not in preceding:
+                            found.setString(f"reasonable {found.getString()}")
+                            print(f"   ✓ Post-processing: added 'reasonable' before '{phrase}'")
+                    found = document.findNext(found.getEnd(), search)
+
             # Save redlined version
             redlined_path = os.path.join(OUTPUT_DIR, f"{base_name}_Smart_Attorney_Redlined.docx")
             redlined_url = uno.systemPathToFileUrl(os.path.abspath(redlined_path))
