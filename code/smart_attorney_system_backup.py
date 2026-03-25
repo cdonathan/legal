@@ -434,6 +434,18 @@ Respond with valid JSON only — no markdown fencing, no commentary."""
                     print(f"   ✓ Line {line_num}: Applied '{pattern.get('title', '')[:50]}'")
                     return True
 
+            # Try regex: replace whitespace runs with flexible whitespace match
+            regex_pattern = re.sub(r'\s+', '\\\\s+', re.escape(normalized))
+            search.setPropertyValue("SearchRegularExpression", True)
+            search.setSearchString(regex_pattern)
+            found = document.findFirst(search)
+            if found:
+                search.setPropertyValue("SearchRegularExpression", False)
+                found.setString(replacement_text)
+                print(f"   ✓ Line {line_num}: Applied via regex '{pattern.get('title', '')[:50]}'")
+                return True
+            search.setPropertyValue("SearchRegularExpression", False)
+
             # Fallback: first 8 words of normalized text
             words = normalized.split()[:8]
             search_phrase = ' '.join(words)
