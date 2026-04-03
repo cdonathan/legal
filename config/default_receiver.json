@@ -1,0 +1,47 @@
+{
+  "client_name": "Default Receiver",
+  "role": "receiver",
+  "industry": "real_estate",
+  "required_roles": [
+    "affiliates", "directors", "officers", "employees", "members",
+    "partners", "investors", "agents", "attorneys", "accountants",
+    "brokers", "consultants", "advisors"
+  ],
+  "rules": {
+    "1_carveouts": { "enabled": true },
+    "2_representatives": { "enabled": true },
+    "3_sub_agreement": { "enabled": true },
+    "4_return_destroy": { "enabled": true },
+    "5_non_circumvention": { "enabled": true, "action": "delete" },
+    "6_term": {
+      "enabled": true,
+      "reduction_ladder": {
+        "5+": "three (3) years",
+        "3-4": "two (2) years",
+        "1-2": "leave",
+        "none": "1 year"
+      }
+    },
+    "7_effective_date": { "enabled": true, "use_dated_as_of": true },
+    "8_legal_compliance": { "enabled": true },
+    "9_remedies": { "enabled": true }
+  },
+  "circumstantial_rules": {
+    "c1_electronic_sig": true,
+    "c2_reasonable_fees": true,
+    "c3_indemnification": true,
+    "c4_obligation_to_proceed": true,
+    "c5_personal_financial": true,
+    "c6_signature_notation": true,
+    "c7_commercial_reasonableness": true,
+    "c8_defined_term_consistency": true,
+    "c9_business_purpose": true
+  },
+  "thresholds": {
+    "auto_apply": 8,
+    "should_apply_total": 15,
+    "should_apply_count": 3,
+    "nice_to_have_total": 20,
+    "nice_to_have_high_count": 2
+  }
+}

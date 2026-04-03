@@ -1,0 +1,17 @@
+{
+  "carveout_block": "Notwithstanding anything to the contrary, the term \"{conf_info_term}\" shall not include: (a) information already in {receiver_term}'s or its {reps_term}' possession prior to the date of disclosure or information that subsequently comes into {receiver_term}'s or its {reps_term}' possession and is not known by such party to be subject to a legal obligation of confidentiality owed to {receiver_term}; (b) information available to the public generally (other than as a result of the breach by {receiver_term} or its {reps_term} of this Agreement); (c) information independently developed by {receiver_term} or its {reps_term} without reliance on any {conf_info_term}.",
+
+  "carveout_prior_possession": "; ({letter}) information already in {receiver_term}'s or its {reps_term}' possession prior to the date of disclosure or information that subsequently comes into {receiver_term}'s or its {reps_term}' possession and is not known by such party to be subject to a legal obligation of confidentiality owed to {receiver_term}",
+
+  "carveout_independent_dev": "; ({letter}) information independently developed by {receiver_term} or its {reps_term} without reliance on any {conf_info_term}",
+
+  "carveout_public": "; ({letter}) information available to the public generally (other than as a result of the breach by {receiver_term} or its {reps_term} of this Agreement)",
+
+  "term_clause": "This Agreement shall be automatically terminated and expired {duration} after the date of this Agreement.",
+
+  "legal_compliance_block": "Notwithstanding the foregoing, {receiver_term} may disclose {conf_info_term} if required by court order, subpoena, or legal process, provided that {receiver_term} shall provide prompt notice to {provider_term} and cooperate on protective orders where practicable.",
+
+  "no_obligation": "{receiver_term} is not obligated to proceed with the Transaction by entering into this Agreement.",
+
+  "signature_notation": "[Signatures are on the following page]"
+}
