@@ -241,26 +241,27 @@ class DocumentEditor:
         return self._do_append(document, edit)
 
     def _do_append(self, document, edit):
-        """Append text before signature block or at end of body."""
+        """Append text as a new numbered clause before the signature block."""
         content = edit.get('content', '')
         text_obj = document.getText()
-        cursor = text_obj.createTextCursor()
-        cursor.gotoEnd(False)
 
-        # Try to find signature area and insert before it
-        for sig_marker in ['Sincerely', 'ACCEPTED AND AGREED', 'IN WITNESS', 'Signature',
+        # Find signature area markers
+        for sig_marker in ['Signed this', 'Sincerely', 'ACCEPTED AND AGREED', 'IN WITNESS',
                            'AGREED TO AND ACCEPTED', 'By:', 'Prospective']:
             found = self._search(document, sig_marker)
             if found:
                 cursor = text_obj.createTextCursorByRange(found)
                 cursor.gotoStartOfParagraph(False)
                 text_obj.insertControlCharacter(cursor, 0, False)  # PARAGRAPH_BREAK
+                text_obj.insertControlCharacter(cursor, 0, False)  # Extra blank line
                 cursor.gotoPreviousParagraph(False)
                 cursor.setString(content)
-                print(f"   ✓ [{edit.get('category')}] Appended before '{sig_marker}'")
+                print(f"   ✓ [{edit.get('category')}] Appended as new clause before '{sig_marker}'")
                 return True
 
-        # Fallback: append at end
+        # Last resort: append at end
+        cursor = text_obj.createTextCursor()
+        cursor.gotoEnd(False)
         text_obj.insertControlCharacter(cursor, 0, False)
         cursor.setString(content)
         print(f"   ✓ [{edit.get('category')}] Appended at end of document")
@@ -286,11 +287,25 @@ class DocumentEditor:
 
         # Accept all changes for clean versions
         try:
-            redlines = document.getRedlines()
-            for i in range(redlines.getCount()):
-                redlines.getByIndex(0).accept()
-        except Exception as e:
-            print(f"   ⚠️ Error accepting changes: {e}")
+            # Method 1: UNO dispatch
+            dispatcher = ctx_sm = document.getCurrentController()
+            frame = dispatcher.getFrame()
+            from com.sun.star.beans import PropertyValue as PV
+            import uno as _uno
+            dispatch = _uno.getComponentContext().ServiceManager.createInstanceWithContext(
+                "com.sun.star.frame.DispatchHelper", _uno.getComponentContext())
+            dispatch.executeDispatch(frame, ".uno:AcceptAllTrackedChanges", "", 0, ())
+            document.setPropertyValue("RecordChanges", False)
+            print("   ✓ Accepted all changes via dispatch")
+        except Exception as e1:
+            print(f"   ⚠️ Dispatch accept failed: {e1}")
+            try:
+                # Method 2: iterate redlines
+                redlines = document.getRedlines()
+                for i in range(redlines.getCount()):
+                    redlines.getByIndex(0).accept()
+            except Exception as e2:
+                print(f"   ⚠️ Redlines accept also failed: {e2}")
 
         # 3. Redacted + Clean
         p3 = os.path.join(self.output_dir, f"{base_name}_Redacted_Clean.docx")

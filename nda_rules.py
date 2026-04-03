@@ -228,9 +228,18 @@ class RulesEngine:
         if dur is None or data.get('quoted_language') == 'NOT FOUND':
             add_dur = ladder.get('none', '1 year')
             content = self.templates['term_clause'].format(duration=add_dur)
+            # Anchor after the last clause we can find
+            anchor = ''
+            for key in ['8_legal_compliance', '4_return_destroy', '5_non_circumvention',
+                        '3_sub_agreement', '2_representatives', '1_carveouts']:
+                q = a.get(key, {}).get('quoted_language', '')
+                if q and q != 'NOT FOUND':
+                    anchor = q
+                    break
             edits.append({
-                'type': 'append_sentence',
-                'anchor_description': 'before signature block',
+                'type': 'insert_block',
+                'anchor_quote': anchor,
+                'anchor_description': 'after last clause',
                 'content': content,
                 'category': '6_term'
             })
