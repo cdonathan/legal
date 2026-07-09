@@ -1,0 +1,103 @@
+# Title Companies Blacklist - ALTA Registry + Additional
+# Source: ALTA Underwriter Contact Information
+# Always redact these company names from documents
+
+# ALTA Registry - Active Confirming Underwriters
+Advocus National Title Insurance Company
+Alamo Title Insurance
+Alamo Title
+Alliant National Title Insurance Company
+American Eagle Title Insurance Co
+American Eagle Title
+AmTrust Title Insurance Company
+AmTrust Title
+Attorneys Title Guaranty Fund
+CATIC
+Chicago Title
+FNF Commercial
+Commonwealth Land Title
+Conestoga Title Insurance Co
+Conestoga Title
+Dakota Homestead Title Insurance Company
+Dakota Homestead
+Doma Title Insurance
+Doma Title
+Essent Title Insurance
+Essent
+Fidelity National Title Insurance Company
+Fidelity National Title
+First American Title Guaranty Company
+First American Title Insurance Company
+First American Title Insurance Company of Louisiana
+First American Title
+First American
+FTILA
+First National Title Insurance Company
+First National Title
+General Title Insurance Company
+General Title
+Investors Title Insurance Company
+Investors Title
+Iowa Title Guaranty
+Iowa Finance Authority
+Land Title Insurance Corporation
+Land Title Insurance
+National Investors Title Insurance Company
+National Investors Title
+NITIC
+National Title Insurance of New York
+Ohio Bar Title Insurance Company
+Ohio Bar Title
+Old Republic National Title Insurance Company
+Old Republic National Title
+Old Republic Title
+Premier Land Title Insurance Company
+Premier Land Title
+Radian Title Insurance
+Real Advantage Title Insurance Company
+Real Advantage Title
+RATIC
+Stewart Title Guaranty Company
+Stewart Title Insurance Company
+Stewart Title
+Security Title Guarantee Corp of Baltimore
+Security Title
+Title Resources Guaranty Company
+Title Resources
+Westcor Land Title Insurance Company
+Westcor Land Title
+WFG National Title Insurance Company
+WFG National Title
+
+# ALTA Additional / Related Companies
+ACE Capital Title Reinsurance
+Aegis Land Title Group
+Albright Title & Trust
+Albright Title
+American Digital Title Insurance Company
+American Digital Title
+American Guaranty Title
+American Land and Aircraft Title
+American Security Title Insurance
+Arkansas Title Insurance Company
+Arkansas Title
+Attorneys' Title Insurance Fund
+Capital Title Insurance Co
+Capital Title
+FNF Family of Companies
+Gulf Coast Title Insurance
+LandAmerica
+Manito Abstract Company
+Mississippi Valley Title Insurance Company
+Mississippi Valley Title
+National Attorneys' Title Assurance Fund
+NATAF
+New Jersey Title Insurance Co
+OneTitle National Guaranty Company
+OneTitle
+Southern Title Insurance Corp
+Southern Title
+The Title Guaranty & Trust Company of Chattanooga
+Title Guaranty & Trust
+Washington Title Insurance Co
+Washington Title

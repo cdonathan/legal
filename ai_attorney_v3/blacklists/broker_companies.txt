@@ -1,0 +1,48 @@
+# Broker Companies - Always redact these names
+# Major national brokerages
+Jones Lang LaSalle
+Cushman & Wakefield
+Cushman Wakefield
+Newmark
+Newmark Knight Frank
+Marcus & Millichap
+Marcus Millichap
+Colliers
+Colliers International
+Eastdil Secured
+Holliday Fenoglio
+Berkadia
+Walker & Dunlop
+Avison Young
+Savills
+Lee & Associates
+NAI Global
+NAI South Coast
+Sperry Van Ness
+Kidder Mathews
+Transwestern
+Prologis
+PGIM Real Estate
+Keller Williams
+Sotheby's International
+Douglas Elliman
+Brown Harris Stevens
+Engel & Volkers
+Real Capital Analytics
+CoStar
+Rialto Capital
+# Regional from client data
+Walton Street
+Walton Street Capital
+Sphere Investments
+Harrison Street
+Crown Medical Realty
+Caprock Partners
+Blue Print HCRE
+Skyview Advisors
+Rialto Capital Advisors
+Epic Brokers
+Van Bridge
+Wilshire Capital
+Montecito MAC
+# Add client-specific brokers below this line

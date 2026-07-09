@@ -1,0 +1,66 @@
+# Law Firms - Always redact these names
+# From client database
+Akerman
+Baker Donelson
+Blank Rome
+Bryan Cave Leighton Paisner
+Chuhak & Tecson
+Coblentz Patch Duffy & Bass
+Cox Castle & Nicholson
+DLA Piper
+Foley & Lardner
+Ginsberg Jacobs
+Greenberg Traurig
+Holland & Knight
+Jones Foster
+Kramer Levin
+McDermott Will & Emery
+Morrison Cohen
+Phelps Dunbar
+Polsinelli
+Reed Smith
+Rigby Slack
+Rutan & Tucker
+Seyfarth Shaw
+Sheppard Mullin
+Snell & Wilmer
+Spencer Fane
+Stevens & Lee
+Winstead
+# Major national firms
+Kirkland & Ellis
+Latham & Watkins
+Skadden Arps
+Sullivan & Cromwell
+Wachtell Lipton
+Davis Polk
+Simpson Thacher
+Cravath Swaine
+Gibson Dunn
+Cleary Gottlieb
+Sidley Austin
+Jones Day
+White & Case
+Milbank
+Paul Weiss
+Weil Gotshal
+Proskauer Rose
+Goodwin Procter
+Willkie Farr
+Debevoise & Plimpton
+Quinn Emanuel
+King & Spalding
+Orrick Herrington
+Mayer Brown
+Akin Gump
+Cooley
+Perkins Coie
+Morgan Lewis
+Hogan Lovells
+Norton Rose
+Allen & Overy
+Clifford Chance
+Freshfields
+Linklaters
+Herbert Smith
+# Add client-specific law firms below this line

@@ -1,0 +1,53 @@
+# Insurance Companies - Always redact these names
+# Major national carriers
+State Farm
+Allstate
+GEICO
+Progressive
+Liberty Mutual
+Nationwide
+Travelers
+Farmers Insurance
+American Family
+Hartford
+The Hartford
+Zurich
+Chubb
+CNA Financial
+CNA Insurance
+Berkshire Hathaway
+Markel
+Hanover Insurance
+Erie Insurance
+Cincinnati Financial
+Auto-Owners
+Mutual of Omaha
+MetLife
+Prudential
+New York Life
+Northwestern Mutual
+MassMutual
+Lincoln National
+Principal Financial
+Aflac
+# Commercial / specialty
+Lloyd's of London
+Lloyds
+Swiss Re
+Munich Re
+General Re
+Allianz
+Tokio Marine
+Sompo International
+Everest Re
+RLI Corp
+Great American Insurance
+Assurant
+Philadelphia Insurance
+Starr Insurance
+# Title insurance specific
+Fidelity National Financial
+First American Financial
+Stewart Information Services
+Old Republic International
+# Add client-specific insurance companies below this line

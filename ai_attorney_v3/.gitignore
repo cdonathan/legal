@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+openai_api_key.txt
+provisions.db
+jobs/
+uploads/
+venv/
+*.egg-info/
+.pytest_cache/

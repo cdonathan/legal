@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Attorney v3 — Clause Validation Cascade</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #1e293b; }
+        .header { background: #1e293b; color: white; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+        .header h1 { font-size: 1.2rem; font-weight: 600; }
+        .header .badge { background: #10b981; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+        /* Upload Section */
+        .upload-section { background: white; border-radius: 8px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 24px; }
+        .upload-section h2 { margin-bottom: 16px; font-size: 1.1rem; }
+        .form-row { display: flex; gap: 16px; align-items: end; flex-wrap: wrap; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group label { font-size: 0.85rem; font-weight: 500; color: #64748b; }
+        .form-group select, .form-group input[type="file"] { padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.9rem; }
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: 500; cursor: pointer; }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-outline { background: white; border: 1px solid #e2e8f0; color: #475569; }
+
+        /* Status */
+        .status-bar { background: white; border-radius: 8px; padding: 16px 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 24px; display: none; }
+        .status-bar .step { font-weight: 600; color: #2563eb; }
+        .progress { height: 4px; background: #e2e8f0; border-radius: 2px; margin-top: 8px; overflow: hidden; }
+        .progress-fill { height: 100%; background: #2563eb; transition: width 0.3s; }
+
+        /* Split Panel */
+        .split-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; display: none; }
+        .panel { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
+        .panel-header { padding: 16px; border-bottom: 1px solid #e2e8f0; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+        .panel-body { padding: 16px; max-height: 70vh; overflow-y: auto; }
+
+        /* Change Cards */
+        .change-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 12px; cursor: pointer; transition: border-color 0.2s; }
+        .change-card:hover { border-color: #2563eb; cursor: pointer; }
+        .change-card.active { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,0.1); }
+        .change-card .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .change-card input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; }
+        .confidence-badge { padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; }
+        .confidence-exact { background: #d1fae5; color: #065f46; }
+        .confidence-fuzzy { background: #fef3c7; color: #92400e; }
+        .confidence-full_clause { background: #fed7aa; color: #9a3412; }
+        .confidence-manual { background: #fecaca; color: #991b1b; }
+        .change-text { font-size: 0.85rem; margin: 8px 0; }
+        .change-text .old { background: #fecaca; padding: 2px 4px; border-radius: 2px; text-decoration: line-through; }
+        .change-text .new { background: #d1fae5; padding: 2px 4px; border-radius: 2px; }
+        .change-meta { font-size: 0.75rem; color: #64748b; }
+        .context-toggle { font-size: 0.75rem; color: #2563eb; cursor: pointer; margin-top: 4px; }
+        .context-content { display: none; font-size: 0.8rem; color: #475569; margin-top: 8px; padding: 12px; background: #f8fafc; border-radius: 4px; line-height: 1.6; border: 1px solid #e2e8f0; }
+        .context-content .context-before { margin-bottom: 8px; }
+        .context-content .context-match { background: #fef3c7; padding: 8px; border-radius: 4px; margin: 8px 0; border-left: 3px solid #f59e0b; }
+        .context-content .context-match .old { background: #fecaca; padding: 2px 4px; border-radius: 2px; text-decoration: line-through; }
+        .context-content .context-match .new { background: #d1fae5; padding: 2px 4px; border-radius: 2px; }
+        .context-content .context-after { margin-top: 8px; }
+
+        /* Document Preview */
+        .doc-preview { font-family: Georgia, serif; font-size: 0.9rem; line-height: 1.8; white-space: pre-wrap; }
+        .doc-preview .highlight { background: #fef3c7; border-left: 3px solid #f59e0b; padding-left: 4px; cursor: pointer; border-radius: 2px; transition: background 0.3s; }
+        .doc-preview .highlight:hover { background: #fde68a; }
+        .doc-preview .highlight-active { background: #fbbf24; box-shadow: 0 0 0 2px #f59e0b; animation: pulse 0.5s ease-in-out 2; }
+        @keyframes pulse { 0%, 100% { background: #fbbf24; } 50% { background: #fef3c7; } }
+
+        /* Action Bar */
+        .action-bar { background: white; border-radius: 8px; padding: 16px 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-top: 24px; display: none; gap: 12px; align-items: center; }
+        .action-bar .count { font-size: 0.85rem; color: #64748b; }
+        .btn-disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; pointer-events: none; }
+        .btn-download { background: #2563eb; color: white; }
+        .btn-download:hover { background: #1d4ed8; }
+
+        /* Processing overlay */
+        .overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 1000; align-items: center; justify-content: center; }
+        .overlay.visible { display: flex; }
+        .overlay-content { background: white; border-radius: 12px; padding: 32px 48px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        .overlay-content .spinner { width: 40px; height: 40px; border: 4px solid #e2e8f0; border-top-color: #2563eb; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+        .overlay-content p { font-size: 1rem; color: #475569; margin: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Drag and Drop */
+        .drop-zone { border: 2px dashed #cbd5e1; border-radius: 8px; padding: 40px 24px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; margin-top: 16px; }
+        .drop-zone:hover { border-color: #2563eb; background: #eff6ff; }
+        .drop-zone.drag-over { border-color: #2563eb; background: #dbeafe; }
+        .drop-zone .drop-icon { font-size: 2rem; margin-bottom: 8px; }
+        .drop-zone .drop-text { font-size: 0.9rem; color: #64748b; }
+        .drop-zone .drop-text strong { color: #2563eb; }
+        .drop-zone .file-name { font-size: 0.85rem; color: #10b981; font-weight: 600; margin-top: 8px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>AI Attorney v3</h1>
+        <span class="badge">Clause Validation Cascade</span>
+    </div>
+
+    <div class="container">
+        <!-- Upload Section -->
+        <div class="upload-section" id="uploadSection">
+            <h2>Upload Document for Analysis</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Document Type</label>
+                    <select id="formType">
+                        <option value="NDA">NDA — Non-Disclosure Agreement</option>
+                        <option value="PSA">PSA — Purchase & Sale Agreement</option>
+                        <option value="LEASE">LEASE — Lease Agreement</option>
+                        <option value="OA">OA — Operating Agreement</option>
+                        <option value="MANA">MANA — Management Agreement</option>
+                        <option value="JV">JV — Joint Venture</option>
+                        <option value="SUBS">SUBS — Subscription Agreement</option>
+                        <option value="GRNTY">GRNTY — Guaranty</option>
+                        <option value="EA">EA — Earnest Money Agreement</option>
+                        <option value="BRKR">BRKR — Broker Agreement</option>
+                        <option value="SRVC">SRVC — Service Agreement</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" id="uploadBtn" onclick="uploadFile()" disabled>Analyze Document</button>
+            </div>
+            <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <div class="drop-icon">📄</div>
+                <div class="drop-text">Drag & drop a file here, or <strong>click to browse</strong></div>
+                <div class="drop-text" style="font-size:0.75rem; margin-top:4px;">.docx, .pdf, .txt, .mhtml</div>
+                <div class="file-name" id="fileName"></div>
+            </div>
+            <input type="file" id="fileInput" accept=".docx,.pdf,.txt,.mhtml,.mht" style="display:none" onchange="handleFileSelect(this)">
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar" id="statusBar">
+            <div>Step <span class="step" id="stepNum">1</span>/10: <span id="statusText">Processing...</span></div>
+            <div class="progress"><div class="progress-fill" id="progressFill" style="width: 10%"></div></div>
+        </div>
+
+        <!-- Split Panel -->
+        <div class="split-panel" id="splitPanel">
+            <div class="panel">
+                <div class="panel-header">
+                    <span>Suggested Changes (<span id="changesCount">0</span>)</span>
+                    <button class="btn btn-outline" onclick="selectAll()">Select All</button>
+                </div>
+                <div class="panel-body" id="changesList"></div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <span>Document Preview</span>
+                </div>
+                <div class="panel-body">
+                    <div class="doc-preview" id="docPreview">Upload a document to see preview...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Bar -->
+        <div class="action-bar" id="actionBar">
+            <button class="btn btn-success" id="applyBtn" onclick="applySelected()">Apply Selected</button>
+            <button class="btn btn-outline" id="downloadRedlineBtn" onclick="downloadFile('redline_docx')">Download Redline</button>
+            <button class="btn btn-outline" id="downloadCleanBtn" onclick="downloadFile('clean_docx')">Download Clean</button>
+            <span class="count" id="selectedCount">0 changes selected</span>
+        </div>
+
+        <!-- Processing Overlay -->
+        <div class="overlay" id="applyOverlay">
+            <div class="overlay-content">
+                <div class="spinner"></div>
+                <p>Applying changes to document...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentJobId = null;
+        let pollInterval = null;
+        let selectedFile = null;
+
+        // Drag and drop setup
+        const dropZone = document.getElementById('dropZone');
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                const ext = file.name.split('.').pop().toLowerCase();
+                if (['docx', 'pdf', 'txt', 'mhtml', 'mht'].includes(ext)) {
+                    selectedFile = file;
+                    showFileName(file.name);
+                } else {
+                    alert('Unsupported file type. Use .docx, .pdf, .txt, or .mhtml');
+                }
+            }
+        });
+
+        function handleFileSelect(input) {
+            if (input.files[0]) {
+                selectedFile = input.files[0];
+                showFileName(selectedFile.name);
+            }
+        }
+
+        function showFileName(name) {
+            const el = document.getElementById('fileName');
+            el.textContent = '✓ ' + name;
+            el.style.display = 'block';
+            document.getElementById('uploadBtn').disabled = false;
+        }
+
+        async function uploadFile() {
+            const formType = document.getElementById('formType').value;
+            if (!selectedFile) { alert('Select or drop a file first'); return; }
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('form_type', formType);
+
+            document.getElementById('uploadBtn').disabled = true;
+            document.getElementById('statusBar').style.display = 'block';
+
+            const resp = await fetch('/api/upload', { method: 'POST', body: formData });
+            const data = await resp.json();
+            currentJobId = data.job_id;
+
+            pollInterval = setInterval(pollStatus, 1500);
+        }
+
+        async function pollStatus() {
+            if (!currentJobId) return;
+            const resp = await fetch(`/api/job/${currentJobId}`);
+            const job = await resp.json();
+
+            document.getElementById('stepNum').textContent = job.step;
+            document.getElementById('statusText').textContent = job.status.replace(/_/g, ' ');
+            document.getElementById('progressFill').style.width = (job.step * 10) + '%';
+
+            if (job.status === 'awaiting_selection') {
+                clearInterval(pollInterval);
+                renderChanges(job.proposed_changes || []);
+                loadDocPreview();
+                document.getElementById('splitPanel').style.display = 'grid';
+                document.getElementById('actionBar').style.display = 'flex';
+                document.getElementById('statusBar').style.display = 'none';
+            } else if (job.status === 'error') {
+                clearInterval(pollInterval);
+                document.getElementById('statusText').textContent = 'Error: ' + job.error;
+                document.getElementById('uploadBtn').disabled = false;
+            }
+        }
+
+        let currentChanges = [];
+
+        function renderChanges(changes) {
+            currentChanges = changes;
+            const list = document.getElementById('changesList');
+            document.getElementById('changesCount').textContent = changes.length;
+            list.innerHTML = '';
+
+            changes.forEach(c => {
+                const card = document.createElement('div');
+                card.className = 'change-card';
+                card.id = `card-${c.id}`;
+                card.dataset.position = c.document_position;
+                card.dataset.find = c.find;
+                card.innerHTML = `
+                    <div class="card-header">
+                        <input type="checkbox" checked data-id="${c.id}" onchange="updateCount()" onclick="event.stopPropagation()">
+                        <span class="confidence-badge confidence-${c.confidence}">${c.confidence}</span>
+                        <span style="font-size:0.8rem;color:#64748b">${escHtml(c.clause_desc || c.source)}</span>
+                    </div>
+                    <div class="change-text">
+                        <span class="old">${escHtml(c.find.substring(0, 100))}${c.find.length > 100 ? '...' : ''}</span>
+                        → <span class="new">${escHtml((c.replace || '[Manual Review]').substring(0, 100))}${(c.replace||'').length > 100 ? '...' : ''}</span>
+                    </div>
+                    <div class="change-meta">${escHtml(c.reasoning || '')}</div>
+                    <div class="context-content" id="context-${c.id}">
+                        <div class="context-before">${escHtml(c.before_context || '')}</div>
+                        <div class="context-match"><span class="old">${escHtml(c.find)}</span> → <span class="new">${escHtml(c.replace || '[Manual Review]')}</span></div>
+                        <div class="context-after">${escHtml(c.after_context || '')}</div>
+                    </div>
+                `;
+                card.addEventListener('click', (e) => {
+                    if (e.target.tagName === 'INPUT') return;
+                    showInDocument(c.id);
+                });
+                list.appendChild(card);
+            });
+            updateCount();
+        }
+
+        async function loadDocPreview() {
+            if (!currentJobId) return;
+            const resp = await fetch(`/api/job/${currentJobId}/document`);
+            const data = await resp.json();
+            const preview = document.getElementById('docPreview');
+            let text = data.text || '';
+            if (text.length > 80000) text = text.substring(0, 80000);
+
+            // Detect where the TOC ends — look for common body-start patterns
+            // TOC lines are typically short with page numbers at the end
+            let tocEndIdx = 0;
+            const lines = text.split('\n');
+            let consecutiveShortLines = 0;
+            let charCount = 0;
+            for (let i = 0; i < lines.length; i++) {
+                charCount += lines[i].length + 1;
+                const line = lines[i].trim();
+                // TOC lines: short, often end with a number, contain tab characters
+                if (line.length < 80 && (/\d+\s*$/.test(line) || line.includes('\t'))) {
+                    consecutiveShortLines++;
+                } else if (line.length > 100) {
+                    // Found a long body paragraph — TOC is likely over
+                    if (consecutiveShortLines > 5) {
+                        tocEndIdx = charCount;
+                        break;
+                    }
+                    consecutiveShortLines = 0;
+                }
+            }
+
+            // Find all change positions — prefer body occurrences over TOC
+            let marks = [];
+            for (const c of currentChanges) {
+                if (!c.find || c.find.length < 5) continue;
+                let searchStr = c.find;
+                let idx = -1;
+
+                // First try to find in the body (after TOC)
+                if (tocEndIdx > 0) {
+                    let bodyIdx = text.indexOf(searchStr, tocEndIdx);
+                    if (bodyIdx >= 0) {
+                        idx = bodyIdx;
+                    }
+                }
+
+                // If not found in body, try full document
+                if (idx < 0) {
+                    idx = text.indexOf(searchStr);
+                }
+
+                // If still not found, try first 60 chars
+                if (idx < 0) {
+                    let short = searchStr.substring(0, 60);
+                    if (tocEndIdx > 0) {
+                        let bodyIdx = text.indexOf(short, tocEndIdx);
+                        if (bodyIdx >= 0) idx = bodyIdx;
+                    }
+                    if (idx < 0) {
+                        idx = text.indexOf(short);
+                    }
+                    if (idx >= 0) {
+                        marks.push({ id: c.id, start: idx, end: idx + short.length });
+                        continue;
+                    }
+                }
+
+                if (idx >= 0) {
+                    marks.push({ id: c.id, start: idx, end: idx + searchStr.length });
+                }
+            }
+
+            // Sort by start position, remove overlaps (keep first)
+            marks.sort((a, b) => a.start - b.start);
+            let filtered = [];
+            let lastEnd = 0;
+            for (const m of marks) {
+                if (m.start >= lastEnd) {
+                    filtered.push(m);
+                    lastEnd = m.end;
+                }
+            }
+
+            // Build HTML in one pass
+            let html = '';
+            let pos = 0;
+            for (const m of filtered) {
+                html += escHtml(text.substring(pos, m.start));
+                html += `<span class="highlight" id="highlight-${m.id}" data-change-id="${m.id}" onclick="scrollToCard(${m.id})">`;
+                html += escHtml(text.substring(m.start, m.end));
+                html += '</span>';
+                pos = m.end;
+            }
+            html += escHtml(text.substring(pos));
+
+            preview.innerHTML = html;
+        }
+
+        function showInDocument(changeId) {
+            const previewPanel = document.querySelector('#splitPanel .panel:last-child .panel-body');
+            const contextEl = document.getElementById(`context-${changeId}`);
+
+            // Toggle context expansion
+            if (contextEl.style.display === 'block') {
+                contextEl.style.display = 'none';
+                document.querySelectorAll('.change-card').forEach(c => c.classList.remove('active'));
+                return;
+            }
+
+            // Expand the context on the clicked card
+            contextEl.style.display = 'block';
+
+            // Collapse any other open contexts
+            document.querySelectorAll('.context-content').forEach(el => {
+                if (el.id !== `context-${changeId}`) {
+                    el.style.display = 'none';
+                }
+            });
+
+            // Mark the card as active
+            document.querySelectorAll('.change-card').forEach(c => c.classList.remove('active'));
+            const card = document.getElementById(`card-${changeId}`);
+            if (card) card.classList.add('active');
+
+            // Scroll document preview to the highlight
+            const highlight = document.getElementById(`highlight-${changeId}`);
+            if (highlight && previewPanel) {
+                const panelRect = previewPanel.getBoundingClientRect();
+                const highlightRect = highlight.getBoundingClientRect();
+                const scrollOffset = previewPanel.scrollTop + (highlightRect.top - panelRect.top) - (panelRect.height / 3);
+                previewPanel.scrollTo({ top: scrollOffset, behavior: 'smooth' });
+
+                // Flash the highlight
+                highlight.classList.remove('highlight-active');
+                void highlight.offsetWidth;
+                highlight.classList.add('highlight-active');
+                setTimeout(() => highlight.classList.remove('highlight-active'), 2500);
+            } else {
+                // Fallback: no highlight found, try text search scroll
+                const change = currentChanges.find(c => c.id === changeId);
+                if (change && change.find && previewPanel) {
+                    const previewText = document.getElementById('docPreview').textContent;
+                    const idx = previewText.indexOf(change.find.substring(0, 40));
+                    if (idx >= 0) {
+                        const ratio = idx / previewText.length;
+                        previewPanel.scrollTo({ top: ratio * previewPanel.scrollHeight, behavior: 'smooth' });
+                    }
+                }
+            }
+        }
+
+        function scrollToCard(changeId) {
+            const card = document.getElementById(`card-${changeId}`);
+            const changesPanel = document.querySelector('#splitPanel .panel:first-child .panel-body');
+            if (card && changesPanel) {
+                const panelRect = changesPanel.getBoundingClientRect();
+                const cardRect = card.getBoundingClientRect();
+                const scrollOffset = changesPanel.scrollTop + (cardRect.top - panelRect.top) - (panelRect.height / 3);
+                changesPanel.scrollTo({ top: scrollOffset, behavior: 'smooth' });
+
+                document.querySelectorAll('.change-card').forEach(c => c.classList.remove('active'));
+                card.classList.add('active');
+
+                // Flash the corresponding highlight
+                const highlight = document.getElementById(`highlight-${changeId}`);
+                if (highlight) {
+                    highlight.classList.remove('highlight-active');
+                    void highlight.offsetWidth;
+                    highlight.classList.add('highlight-active');
+                    setTimeout(() => highlight.classList.remove('highlight-active'), 2500);
+                }
+            }
+        }
+
+        function selectAll() {
+            document.querySelectorAll('.change-card input[type="checkbox"]').forEach(cb => cb.checked = true);
+            updateCount();
+        }
+
+        function updateCount() {
+            const checked = document.querySelectorAll('.change-card input[type="checkbox"]:checked').length;
+            document.getElementById('selectedCount').textContent = `${checked} changes selected`;
+        }
+
+        async function applySelected() {
+            const ids = [];
+            document.querySelectorAll('.change-card input[type="checkbox"]:checked').forEach(cb => {
+                ids.push(parseInt(cb.dataset.id));
+            });
+            if (!ids.length) { alert('Select at least one change'); return; }
+
+            // Show processing overlay
+            document.getElementById('applyOverlay').classList.add('visible');
+
+            try {
+                const resp = await fetch(`/api/job/${currentJobId}/apply`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(ids)
+                });
+                const result = await resp.json();
+
+                // Hide overlay
+                document.getElementById('applyOverlay').classList.remove('visible');
+
+                if (result.status === 'complete') {
+                    // Disable Apply button
+                    const applyBtn = document.getElementById('applyBtn');
+                    applyBtn.className = 'btn btn-disabled';
+                    applyBtn.textContent = `✓ ${result.applied_count} Changes Applied`;
+                    applyBtn.onclick = null;
+
+                    // Highlight download buttons
+                    document.getElementById('downloadRedlineBtn').className = 'btn btn-download';
+                    document.getElementById('downloadCleanBtn').className = 'btn btn-download';
+
+                    // Update count text
+                    document.getElementById('selectedCount').textContent = 'Documents ready for download';
+                }
+            } catch (e) {
+                document.getElementById('applyOverlay').classList.remove('visible');
+                alert('Error applying changes: ' + e.message);
+            }
+        }
+
+        async function downloadFile(type) {
+            window.open(`/api/job/${currentJobId}/download/${type}`, '_blank');
+        }
+
+        function escHtml(s) {
+            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+    </script>
+</body>
+</html>

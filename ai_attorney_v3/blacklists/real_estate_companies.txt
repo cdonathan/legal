@@ -1,0 +1,347 @@
+# Real Estate Companies - Residential and Commercial
+# Always redact these company names from documents
+
+# --- RESIDENTIAL BROKERAGES ---
+RE/MAX
+ReMax
+Keller Williams
+Keller Williams Realty
+Coldwell Banker
+Coldwell Banker Real Estate
+Century 21
+Berkshire Hathaway HomeServices
+Sotheby's International Realty
+eXp Realty
+Douglas Elliman
+Brown Harris Stevens
+Engel & Volkers
+HomeSmart
+Redfin
+Realogy
+Anywhere Real Estate
+Howard Hanna
+Long & Foster
+William Raveis
+Weichert Realtors
+Weichert
+@properties
+Baird & Warner
+Windermere
+John L. Scott
+Alain Pinel
+Pacific Union
+Corcoran Group
+Corcoran
+Halstead
+Elliman
+Zillow
+Trulia
+Opendoor
+Offerpad
+
+# --- COMMERCIAL REAL ESTATE (Investment / Institutional) ---
+BlackRock
+Blackstone
+Blackstone Real Estate
+Brookfield Asset Management
+Brookfield
+Starwood Capital
+Starwood Capital Group
+KKR Real Estate
+Apollo Global
+Apollo Global Management
+Carlyle Group
+Carlyle
+Ares Management
+Cerberus Capital
+Cerberus
+Fortress Investment Group
+Fortress
+Oaktree Capital
+Oaktree
+TPG Capital
+Lone Star Funds
+Lone Star
+Colony Capital
+DigitalBridge
+Greystar
+Greystar Real Estate
+Invitation Homes
+American Homes 4 Rent
+Prologis
+Duke Realty
+Liberty Property Trust
+Equity Residential
+AvalonBay
+AvalonBay Communities
+Essex Property Trust
+Camden Property Trust
+Mid-America Apartment
+Boston Properties
+Vornado Realty
+SL Green Realty
+Mack Real Estate
+Tishman Speyer
+Related Companies
+Lendlease
+Brookfield Properties
+Mack-Cali
+Paramount Group
+RXR Realty
+Silverstein Properties
+Silverstein
+
+# --- COMMERCIAL REAL ESTATE (Operating / Development) ---
+Simon Property Group
+Simon Properties
+Kimco Realty
+Regency Centers
+Federal Realty
+Ventas
+Welltower
+Healthpeak
+Medical Properties Trust
+Sabra Healthcare
+Physicians Realty
+Global Medical REIT
+American Healthcare Investors
+NexPoint
+Griffin-American
+Carter Validus
+Harrison Street Real Estate
+Harrison Street
+Walton Street Capital
+Walton Street
+Heitman
+PGIM Real Estate
+LaSalle Investment Management
+LaSalle
+Clarion Partners
+Principal Real Estate
+Nuveen Real Estate
+Nuveen
+MetLife Investment Management
+AEW Capital Management
+Barings Real Estate
+Invesco Real Estate
+Invesco
+DWS Group
+CBRE Investment Management
+Kayne Anderson
+Kayne Anderson Real Estate
+CIM Group
+Rockwood Capital
+Angelo Gordon
+Torchlight Investors
+
+# --- COMMERCIAL REAL ESTATE (Brokerage / Advisory) ---
+CBRE Group
+Jones Lang LaSalle
+Cushman & Wakefield
+Cushman Wakefield
+Newmark
+Newmark Group
+Newmark Knight Frank
+Marcus & Millichap
+Marcus Millichap
+Colliers
+Colliers International
+Eastdil Secured
+Berkadia
+Walker & Dunlop
+Avison Young
+Savills
+Lee & Associates
+NAI Global
+Sperry Van Ness
+Kidder Mathews
+Transwestern
+Ariel Property Advisors
+Meridian Capital
+Meridian Capital Group
+Eastern Consolidated
+Massey Knakal
+Holliday Fenoglio Fowler
+B6 Real Estate Advisors
+Hodges Ward Elliott
+Robert A. McNamara
+Eastdil
+Green Street Advisors
+Green Street
+Real Capital Analytics
+CoStar
+CoStar Group
+
+# --- REITs ---
+American Tower
+Crown Castle
+Equinix
+Digital Realty
+Public Storage
+Extra Space Storage
+CubeSmart
+Life Storage
+National Storage Affiliates
+Iron Mountain
+Weyerhaeuser
+Rayonier
+PotlatchDeltic
+Realty Income
+National Retail Properties
+Spirit Realty
+STORE Capital
+Agree Realty
+Essential Properties
+Broadstone Net Lease
+W. P. Carey
+American Finance Trust
+Global Net Lease
+
+# --- From client database ---
+Sphere Investments
+Caprock Partners
+Crown Medical Realty
+Skyview Advisors
+Rialto Capital
+Rialto Capital Advisors
+Blue Print HCRE
+Montecito MAC
+Van Bridge
+Wilshire Capital
+Prime Group
+Janko Group
+Flagler Investments
+Walton Street Capital
+Hudson Properties
+Asset Management Partners
+Anchor Health Properties
+Remedy Medical Properties
+Charter Senior Living
+PAM Health
+Wind Wave RE
+US NERE
+Titan Power
+Good Health Capital
+Grand China Fund
+Four Trees Capital
+Real Power Capital
+Carib Galaxy
+
+# --- ADDITIONAL FROM COMPREHENSIVE LIST ---
+# Residential brands
+Century 21 Real Estate
+Better Homes and Gardens Real Estate
+ERA Real Estate
+HomeServices of America
+Howard Hanna Real Estate Services
+Realty ONE Group
+United Real Estate
+Fathom Realty
+The Agency
+Christie's International Real Estate
+Engel & Volkers
+Realty Executives
+NextHome
+Realty World
+EXIT Realty
+LPT Realty
+Radius Agent
+Vylla Home
+Intero Real Estate Services
+William Raveis Real Estate
+Allen Tate Realtors
+John L. Scott Real Estate
+Windermere Real Estate
+Rodeo Realty
+SERHANT
+Nest Seekers International
+United Country Real Estate
+Crye-Leike Realtors
+Watson Realty Corp
+Russ Lyon Sotheby's International Realty
+Hunt Real Estate
+Samson Properties
+McEnearney Associates
+StreetEasy
+Realtor.com
+Homes.com
+
+# Commercial brokerage additions
+SVN International
+Cresa
+Mohr Partners
+Savills North America
+T3 Advisors
+The Shopping Center Group
+Eastern Union
+Northmarq
+Greysteel
+Matthews Real Estate Investment Services
+The Boulder Group
+Hughes Marino
+TIG Real Estate Services
+Bradford Commercial Real Estate Services
+Stream Realty Partners
+Foundry Commercial
+Lincoln Property Company
+
+# Institutional / fund additions
+BlackRock Real Estate
+Morgan Stanley Real Estate Investing
+Goldman Sachs Asset Management
+J.P. Morgan Asset Management
+MetLife Investment Management
+Principal Real Estate Investors
+Ares Management Real Estate
+Bain Capital Real Estate
+Bridge Investment Group
+Greystar Investment Management
+Crow Holdings
+Related Fund Management
+Apartment Income REIT
+AIR Communities
+Kilroy Realty
+Alexandria Real Estate Equities
+Brixmor Property Group
+Macerich
+Tanger
+Rexford Industrial Realty
+First Industrial Realty Trust
+STAG Industrial
+Terreno Realty
+EastGroup Properties
+The Durst Organization
+Lendlease Americas
+Trammell Crow Company
+
+# Homebuilders
+D.R. Horton
+PulteGroup
+Toll Brothers
+Taylor Morrison
+KB Home
+Meritage Homes
+M/I Homes
+Dream Finders Homes
+Tri Pointe Homes
+Century Communities
+LGI Homes
+David Weekley Homes
+Hovnanian Enterprises
+Brookfield Residential
+
+# Developers / operators additions
+The Related Group
+Crescent Communities
+JBG SMITH
+Oxford Properties
+Hudson Pacific Properties
+Irvine Company
+Holland Partner Group
+Bozzuto
+Wood Partners
+Mill Creek Residential
+Alliance Residential
+RPM Living
+Cortland
+Bell Partners
