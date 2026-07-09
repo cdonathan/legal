@@ -33,7 +33,7 @@
         .progress-fill { height: 100%; background: #2563eb; transition: width 0.3s; }
 
         /* Split Panel */
-        .split-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; display: none; }
+        .split-panel { display: grid; grid-template-columns: 1fr 2fr; gap: 24px; display: none; }
         .panel { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
         .panel-header { padding: 16px; border-bottom: 1px solid #e2e8f0; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
         .panel-body { padding: 16px; max-height: 70vh; overflow-y: auto; }
@@ -62,11 +62,34 @@
         .context-content .context-after { margin-top: 8px; }
 
         /* Document Preview */
-        .doc-preview { font-family: Georgia, serif; font-size: 0.9rem; line-height: 1.8; white-space: pre-wrap; }
+        .doc-preview { font-family: 'Times New Roman', Georgia, serif; font-size: 11pt; line-height: 1.6; white-space: normal; }
+        .doc-preview:focus { outline: none; }
+        .doc-preview h1 { font-size: 14pt; text-align: center; font-weight: bold; margin: 20px 0 10px; text-transform: uppercase; }
+        .doc-preview h2 { font-size: 12pt; font-weight: normal; margin: 18px 0 8px; }
+        .doc-preview h3 { font-size: 11pt; font-weight: normal; margin: 14px 0 6px; }
+        .doc-preview h4 { font-size: 11pt; font-weight: normal; margin: 12px 0 4px; }
+        .doc-preview p { margin: 4px 0; text-align: justify; }
+        .doc-preview p.doc-toc { margin: 2px 0; color: #444; font-size: 10pt; }
+        .doc-preview p.doc-center { text-align: center; }
+        .doc-preview table.doc-table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 10pt; }
+        .doc-preview table.doc-table td { border: 1px solid #999; padding: 5px 8px; vertical-align: top; }
         .doc-preview .highlight { background: #fef3c7; border-left: 3px solid #f59e0b; padding-left: 4px; cursor: pointer; border-radius: 2px; transition: background 0.3s; }
         .doc-preview .highlight:hover { background: #fde68a; }
         .doc-preview .highlight-active { background: #fbbf24; box-shadow: 0 0 0 2px #f59e0b; animation: pulse 0.5s ease-in-out 2; }
+        .doc-preview .edit-marker { background: #dbeafe; border-left: 3px solid #2563eb; padding-left: 4px; }
         @keyframes pulse { 0%, 100% { background: #fbbf24; } 50% { background: #fef3c7; } }
+        .save-bar { display: none; padding: 8px 16px; background: #dbeafe; border-bottom: 1px solid #93c5fd; align-items: center; gap: 12px; font-size: 0.85rem; color: #1e40af; }
+        .save-bar.visible { display: flex; }
+        .save-bar .btn-save { background: #2563eb; color: white; padding: 4px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+        .save-bar .btn-save:hover { background: #1d4ed8; }
+
+        /* Toolbar */
+        .toolbar { display: flex; align-items: center; gap: 2px; padding: 6px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; }
+        .toolbar-btn { width: 30px; height: 28px; border: 1px solid transparent; background: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; color: #475569; }
+        .toolbar-btn:hover { background: #e2e8f0; border-color: #cbd5e1; }
+        .toolbar-btn:active { background: #cbd5e1; }
+        .toolbar-sep { width: 1px; height: 20px; background: #e2e8f0; margin: 0 4px; }
+        .toolbar-select { padding: 3px 6px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.75rem; color: #475569; background: white; cursor: pointer; }
 
         /* Action Bar */
         .action-bar { background: white; border-radius: 8px; padding: 16px 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-top: 24px; display: none; gap: 12px; align-items: center; }
@@ -150,8 +173,40 @@
                 <div class="panel-header">
                     <span>Document Preview</span>
                 </div>
+                <div class="toolbar" id="toolbar">
+                    <button class="toolbar-btn" onclick="execCmd('bold')" title="Bold"><strong>B</strong></button>
+                    <button class="toolbar-btn" onclick="execCmd('italic')" title="Italic"><em>I</em></button>
+                    <button class="toolbar-btn" onclick="execCmd('underline')" title="Underline"><u>U</u></button>
+                    <button class="toolbar-btn" onclick="execCmd('strikeThrough')" title="Strikethrough"><s>S</s></button>
+                    <span class="toolbar-sep"></span>
+                    <button class="toolbar-btn" onclick="execCmd('justifyLeft')" title="Align Left">⫷</button>
+                    <button class="toolbar-btn" onclick="execCmd('justifyCenter')" title="Align Center">⫶</button>
+                    <button class="toolbar-btn" onclick="execCmd('justifyRight')" title="Align Right">⫸</button>
+                    <span class="toolbar-sep"></span>
+                    <button class="toolbar-btn" onclick="execCmd('insertUnorderedList')" title="Bullet List">•≡</button>
+                    <button class="toolbar-btn" onclick="execCmd('insertOrderedList')" title="Numbered List">1≡</button>
+                    <span class="toolbar-sep"></span>
+                    <button class="toolbar-btn" onclick="execCmd('indent')" title="Indent">→⌗</button>
+                    <button class="toolbar-btn" onclick="execCmd('outdent')" title="Outdent">←⌗</button>
+                    <span class="toolbar-sep"></span>
+                    <select class="toolbar-select" onchange="execFontSize(this.value)" title="Font Size">
+                        <option value="">Size</option>
+                        <option value="1">8pt</option>
+                        <option value="2">10pt</option>
+                        <option value="3">11pt</option>
+                        <option value="4">14pt</option>
+                        <option value="5">18pt</option>
+                        <option value="6">24pt</option>
+                    </select>
+                    <button class="toolbar-btn" onclick="execCmd('removeFormat')" title="Clear Formatting">⌀</button>
+                </div>
+                <div class="save-bar" id="saveBar">
+                    <span>📝 Unsaved edits</span>
+                    <button class="btn-save" onclick="saveManualEdits()">Save edits</button>
+                    <span id="editCount">0 paragraphs modified</span>
+                </div>
                 <div class="panel-body">
-                    <div class="doc-preview" id="docPreview">Upload a document to see preview...</div>
+                    <div class="doc-preview" id="docPreview" contenteditable="true" spellcheck="false">Upload a document to see preview...</div>
                 </div>
             </div>
         </div>
@@ -301,101 +356,160 @@
             updateCount();
         }
 
+        let originalParagraphs = {}; // {paraIndex: originalText}
+        let manualEdits = []; // [{paragraph_index, original, new}]
+
         async function loadDocPreview() {
             if (!currentJobId) return;
             const resp = await fetch(`/api/job/${currentJobId}/document`);
             const data = await resp.json();
             const preview = document.getElementById('docPreview');
-            let text = data.text || '';
-            if (text.length > 80000) text = text.substring(0, 80000);
 
-            // Detect where the TOC ends — look for common body-start patterns
-            // TOC lines are typically short with page numbers at the end
-            let tocEndIdx = 0;
-            const lines = text.split('\n');
-            let consecutiveShortLines = 0;
-            let charCount = 0;
-            for (let i = 0; i < lines.length; i++) {
-                charCount += lines[i].length + 1;
-                const line = lines[i].trim();
-                // TOC lines: short, often end with a number, contain tab characters
-                if (line.length < 80 && (/\d+\s*$/.test(line) || line.includes('\t'))) {
-                    consecutiveShortLines++;
-                } else if (line.length > 100) {
-                    // Found a long body paragraph — TOC is likely over
-                    if (consecutiveShortLines > 5) {
-                        tocEndIdx = charCount;
-                        break;
-                    }
-                    consecutiveShortLines = 0;
+            if (data.html) {
+                // Use formatted HTML from python-docx
+                preview.innerHTML = data.html;
+
+                // Store original paragraph text for diff tracking
+                originalParagraphs = {};
+                if (data.paragraphs) {
+                    data.paragraphs.forEach(p => {
+                        originalParagraphs[p.index] = p.text;
+                    });
                 }
+
+                // Also store original text from the DOM elements directly (more reliable)
+                preview.querySelectorAll('[data-para-index]').forEach(el => {
+                    const idx = parseInt(el.dataset.paraIndex);
+                    if (!originalParagraphs[idx]) {
+                        originalParagraphs[idx] = el.textContent;
+                    }
+                    // Store on the element itself for easy comparison
+                    el.dataset.originalText = el.textContent;
+                });
+
+                // Add highlights for changes
+                addHighlightsToHtml(preview, data.text || '');
+            } else {
+                // Fallback to plain text
+                let text = data.text || '';
+                preview.textContent = text.substring(0, 80000);
             }
 
-            // Find all change positions — prefer body occurrences over TOC
-            let marks = [];
+            // Set up edit tracking — use 'input' event on the preview container
+            preview.addEventListener('input', onPreviewEdit);
+        }
+
+        function addHighlightsToHtml(preview, plainText) {
             for (const c of currentChanges) {
                 if (!c.find || c.find.length < 5) continue;
-                let searchStr = c.find;
-                let idx = -1;
-
-                // First try to find in the body (after TOC)
-                if (tocEndIdx > 0) {
-                    let bodyIdx = text.indexOf(searchStr, tocEndIdx);
-                    if (bodyIdx >= 0) {
-                        idx = bodyIdx;
+                const elements = preview.querySelectorAll('[data-para-index]');
+                for (const el of elements) {
+                    const text = el.textContent;
+                    const searchStr = c.find.substring(0, 60);
+                    if (text.includes(searchStr)) {
+                        const fullSearch = escHtml(c.find);
+                        const fullIdx = el.innerHTML.indexOf(fullSearch);
+                        if (fullIdx >= 0) {
+                            el.innerHTML = el.innerHTML.substring(0, fullIdx) +
+                                `<span class="highlight" id="highlight-${c.id}" data-change-id="${c.id}" onclick="event.stopPropagation(); scrollToCard(${c.id})">${el.innerHTML.substring(fullIdx, fullIdx + fullSearch.length)}</span>` +
+                                el.innerHTML.substring(fullIdx + fullSearch.length);
+                        } else {
+                            const shortHtml = escHtml(searchStr);
+                            const shortIdx = el.innerHTML.indexOf(shortHtml);
+                            if (shortIdx >= 0) {
+                                el.innerHTML = el.innerHTML.substring(0, shortIdx) +
+                                    `<span class="highlight" id="highlight-${c.id}" data-change-id="${c.id}" onclick="event.stopPropagation(); scrollToCard(${c.id})">${el.innerHTML.substring(shortIdx, shortIdx + shortHtml.length)}</span>` +
+                                    el.innerHTML.substring(shortIdx + shortHtml.length);
+                            }
+                        }
+                        break;
                     }
                 }
+            }
+        }
 
-                // If not found in body, try full document
-                if (idx < 0) {
-                    idx = text.indexOf(searchStr);
+        function onPreviewEdit(e) {
+            // Find the nearest paragraph element with data-para-index
+            let target = e.target;
+            if (!target.dataset || !target.dataset.paraIndex) {
+                target = target.closest('[data-para-index]');
+            }
+            if (!target) return;
+
+            const paraIndex = parseInt(target.dataset.paraIndex);
+            const currentText = target.textContent;
+            const originalText = target.dataset.originalText || originalParagraphs[paraIndex] || '';
+
+            if (currentText !== originalText) {
+                target.classList.add('edit-marker');
+                // Update or add to manual edits
+                const existing = manualEdits.find(e => e.paragraph_index === paraIndex);
+                if (existing) {
+                    existing.new = currentText;
+                } else {
+                    manualEdits.push({
+                        paragraph_index: paraIndex,
+                        original: originalText,
+                        new: currentText
+                    });
                 }
+            } else {
+                target.classList.remove('edit-marker');
+                manualEdits = manualEdits.filter(e => e.paragraph_index !== paraIndex);
+            }
 
-                // If still not found, try first 60 chars
-                if (idx < 0) {
-                    let short = searchStr.substring(0, 60);
-                    if (tocEndIdx > 0) {
-                        let bodyIdx = text.indexOf(short, tocEndIdx);
-                        if (bodyIdx >= 0) idx = bodyIdx;
-                    }
-                    if (idx < 0) {
-                        idx = text.indexOf(short);
-                    }
-                    if (idx >= 0) {
-                        marks.push({ id: c.id, start: idx, end: idx + short.length });
-                        continue;
-                    }
+            // Show/hide save bar
+            const saveBar = document.getElementById('saveBar');
+            if (manualEdits.length > 0) {
+                saveBar.classList.add('visible');
+                document.getElementById('editCount').textContent = `${manualEdits.length} paragraph(s) modified`;
+            } else {
+                saveBar.classList.remove('visible');
+            }
+        }
+
+        function collectManualEdits() {
+            // Final collection pass — scan all paragraphs for changes before applying
+            // Sends innerHTML (with formatting) so backend can reconstruct styled runs
+            const preview = document.getElementById('docPreview');
+            manualEdits = [];
+            preview.querySelectorAll('[data-para-index]').forEach(el => {
+                const paraIndex = parseInt(el.dataset.paraIndex);
+                const currentText = el.textContent;
+                const originalText = el.dataset.originalText || originalParagraphs[paraIndex] || '';
+                if (currentText !== originalText && currentText.trim()) {
+                    manualEdits.push({
+                        paragraph_index: paraIndex,
+                        original: originalText,
+                        new_text: currentText,
+                        new_html: el.innerHTML
+                    });
                 }
+            });
 
-                if (idx >= 0) {
-                    marks.push({ id: c.id, start: idx, end: idx + searchStr.length });
+            // Also check for new paragraphs added (no data-para-index)
+            // These would be new elements the user typed that aren't tracked
+            const allChildren = preview.children;
+            for (let i = 0; i < allChildren.length; i++) {
+                const el = allChildren[i];
+                if (!el.dataset.paraIndex && el.textContent.trim()) {
+                    manualEdits.push({
+                        paragraph_index: -1,  // New paragraph
+                        insert_after: i > 0 ? parseInt(allChildren[i-1].dataset?.paraIndex || -1) : -1,
+                        original: '',
+                        new_text: el.textContent,
+                        new_html: el.innerHTML
+                    });
                 }
             }
 
-            // Sort by start position, remove overlaps (keep first)
-            marks.sort((a, b) => a.start - b.start);
-            let filtered = [];
-            let lastEnd = 0;
-            for (const m of marks) {
-                if (m.start >= lastEnd) {
-                    filtered.push(m);
-                    lastEnd = m.end;
-                }
-            }
+            return manualEdits;
+        }
 
-            // Build HTML in one pass
-            let html = '';
-            let pos = 0;
-            for (const m of filtered) {
-                html += escHtml(text.substring(pos, m.start));
-                html += `<span class="highlight" id="highlight-${m.id}" data-change-id="${m.id}" onclick="scrollToCard(${m.id})">`;
-                html += escHtml(text.substring(m.start, m.end));
-                html += '</span>';
-                pos = m.end;
-            }
-            html += escHtml(text.substring(pos));
-
-            preview.innerHTML = html;
+        function saveManualEdits() {
+            collectManualEdits();
+            document.getElementById('saveBar').classList.remove('visible');
+            alert(`${manualEdits.length} manual edit(s) saved. They will be included when you Apply Selected.`);
         }
 
         function showInDocument(changeId) {
@@ -489,7 +603,11 @@
             document.querySelectorAll('.change-card input[type="checkbox"]:checked').forEach(cb => {
                 ids.push(parseInt(cb.dataset.id));
             });
-            if (!ids.length) { alert('Select at least one change'); return; }
+
+            // Collect all manual edits right before applying (final scan)
+            const edits = collectManualEdits();
+
+            if (!ids.length && !edits.length) { alert('Select at least one change or make an edit'); return; }
 
             // Show processing overlay
             document.getElementById('applyOverlay').classList.add('visible');
@@ -498,7 +616,10 @@
                 const resp = await fetch(`/api/job/${currentJobId}/apply`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(ids)
+                    body: JSON.stringify({
+                        accepted_suggestions: ids,
+                        manual_edits: edits
+                    })
                 });
                 const result = await resp.json();
 
@@ -517,7 +638,12 @@
                     document.getElementById('downloadCleanBtn').className = 'btn btn-download';
 
                     // Update count text
-                    document.getElementById('selectedCount').textContent = 'Documents ready for download';
+                    const method = result.track_changes_method === 'libreoffice_uno' ? '(real track changes)' : '(visual redlines)';
+                    document.getElementById('selectedCount').textContent = `Documents ready for download ${method}`;
+
+                    // Hide save bar
+                    document.getElementById('saveBar').classList.remove('visible');
+                    manualEdits = [];
                 }
             } catch (e) {
                 document.getElementById('applyOverlay').classList.remove('visible');
@@ -531,6 +657,18 @@
 
         function escHtml(s) {
             return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function execCmd(command) {
+            document.execCommand(command, false, null);
+            document.getElementById('docPreview').focus();
+        }
+
+        function execFontSize(size) {
+            if (size) {
+                document.execCommand('fontSize', false, size);
+                document.getElementById('docPreview').focus();
+            }
         }
     </script>
 </body>

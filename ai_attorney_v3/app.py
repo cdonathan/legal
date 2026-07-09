@@ -338,25 +338,37 @@ def get_job_status(job_id: str):
 
 @app.get("/api/job/{job_id}/document")
 def get_document_text(job_id: str):
-    """Return full document text with change position markers for preview panel."""
+    """Return document as formatted HTML for the editable preview panel."""
     if job_id not in jobs:
         raise HTTPException(404, "Job not found")
 
     job = jobs[job_id]
-    text = job.get("original_text", "")
-    changes = job.get("proposed_changes", [])
+    file_path = job.get("file_path", "")
 
-    markers = [
-        {"id": c.id, "position": c.document_position, "length": len(c.find)}
-        for c in changes if c.document_position > 0
-    ]
+    # Convert DOCX to HTML if not already cached
+    if not job.get("document_html"):
+        from docx_to_html import convert_docx_to_html
+        if file_path.endswith(".docx") and os.path.exists(file_path):
+            result = convert_docx_to_html(file_path)
+            job["document_html"] = result["html"]
+            job["document_paragraphs"] = result["paragraphs"]
+        else:
+            # Fallback to plain text for non-DOCX
+            text = job.get("original_text", "")
+            from xml.sax.saxutils import escape
+            job["document_html"] = f'<div class="doc-body">{escape(text)}</div>'
+            job["document_paragraphs"] = [{"index": 0, "text": text, "style": "Normal"}]
 
-    return {"text": text, "markers": markers}
+    return {
+        "html": job["document_html"],
+        "paragraphs": job["document_paragraphs"],
+        "text": job.get("original_text", ""),  # Still include plain text for highlight matching
+    }
 
 
 @app.post("/api/job/{job_id}/apply")
 async def apply_selected(job_id: str, request: Request):
-    """Apply user-selected changes to the document."""
+    """Apply user-selected changes to the document using LibreOffice UNO for real track changes."""
     if job_id not in jobs:
         raise HTTPException(404, "Job not found")
 
@@ -365,7 +377,14 @@ async def apply_selected(job_id: str, request: Request):
         raise HTTPException(400, f"Job not ready. Status: {job['status']}")
 
     body = await request.json()
-    selected_ids = body if isinstance(body, list) else []
+    # Body can be {"accepted_suggestions": [1,2,3], "manual_edits": [...]}
+    # Or just a list of IDs (backward compat)
+    if isinstance(body, list):
+        selected_ids = body
+        manual_edits = []
+    else:
+        selected_ids = body.get("accepted_suggestions", [])
+        manual_edits = body.get("manual_edits", [])
 
     all_changes = job.get("proposed_changes", [])
     selected = [c for c in all_changes if c.id in selected_ids] if selected_ids else all_changes
@@ -374,21 +393,39 @@ async def apply_selected(job_id: str, request: Request):
     applicable = [c for c in selected if c.confidence != "manual" and c.replace]
 
     job_dir = os.path.join(config.JOBS_DIR, job_id)
+    os.makedirs(job_dir, exist_ok=True)
     base = os.path.splitext(job["filename"])[0]
     pass_num = job.get("pass_number", 1)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    redline_path = os.path.join(job_dir, f"{base}_Redlined_{timestamp}.docx")
+    clean_path = os.path.join(job_dir, f"{base}_Clean_{timestamp}.docx")
 
     from document_processor import DocumentProcessor
     from redaction import reconstruct_pii_in_docx
 
     processor = DocumentProcessor()
 
-    # Generate redlined version
-    redline_path = os.path.join(job_dir, f"{base}_redline_pass{pass_num}.docx")
-    processor.apply_changes(job["file_path"], applicable, redline_path, redline=True)
+    # Apply manual edits first (with HTML formatting) to a working copy
+    import shutil
+    working_path = os.path.join(job_dir, f"{base}_working.docx")
+    shutil.copy2(job["file_path"], working_path)
 
-    # Generate clean version
-    clean_path = os.path.join(job_dir, f"{base}_clean_pass{pass_num}.docx")
-    processor.apply_changes(job["file_path"], applicable, clean_path, redline=False)
+    if manual_edits:
+        from html_to_docx import apply_manual_edits_to_docx
+        apply_manual_edits_to_docx(working_path, manual_edits, working_path)
+        logger.info(f"Job {job_id}: Applied {len(manual_edits)} manual edits with formatting")
+
+    # Try LibreOffice UNO for real track changes on AI suggestions
+    uno_success = _apply_with_libreoffice_uno(
+        working_path, applicable, [], redline_path, clean_path
+    )
+
+    if not uno_success:
+        # Fallback to python-docx (visual redlines, not real track changes)
+        logger.warning(f"Job {job_id}: LibreOffice UNO unavailable, using python-docx fallback")
+        processor.apply_changes(working_path, applicable, redline_path, redline=True)
+        processor.apply_changes(working_path, applicable, clean_path, redline=False)
 
     # Reconstruct PII in output files
     pii_mapping = job.get("pii_mapping", {})
@@ -396,9 +433,9 @@ async def apply_selected(job_id: str, request: Request):
         reconstruct_pii_in_docx(redline_path, pii_mapping)
         reconstruct_pii_in_docx(clean_path, pii_mapping)
 
-    # Generate PDFs (optional)
-    redline_pdf = os.path.join(job_dir, f"{base}_redline_pass{pass_num}.pdf")
-    clean_pdf = os.path.join(job_dir, f"{base}_clean_pass{pass_num}.pdf")
+    # Generate PDFs
+    redline_pdf = os.path.join(job_dir, f"{base}_Redlined_{timestamp}.pdf")
+    clean_pdf = os.path.join(job_dir, f"{base}_Clean_{timestamp}.pdf")
     processor.create_pdf(clean_path, clean_pdf)
     time.sleep(1)
     processor.create_pdf(redline_path, redline_pdf)
@@ -410,19 +447,142 @@ async def apply_selected(job_id: str, request: Request):
         "clean_pdf": clean_pdf if os.path.exists(clean_pdf) else None,
     }
     job["status"] = "complete"
-    job["applied_count"] = len(applicable)
+    job["applied_count"] = len(applicable) + len(manual_edits)
     job["can_rerun"] = pass_num < config.MAX_RERUN_PASSES
+    job["track_changes_method"] = "libreoffice_uno" if uno_success else "python_docx_visual"
 
     return {
         "status": "complete",
-        "applied_count": len(applicable),
+        "applied_count": job["applied_count"],
         "pass_number": pass_num,
         "can_rerun": job["can_rerun"],
+        "track_changes_method": job["track_changes_method"],
         "files": {
             k: f"/api/job/{job_id}/download/{k}" if v else None
             for k, v in job["output_files"].items()
         },
     }
+
+
+def _apply_with_libreoffice_uno(
+    docx_path: str,
+    changes: list,
+    manual_edits: list,
+    redline_path: str,
+    clean_path: str
+) -> bool:
+    """
+    Apply changes using LibreOffice UNO with RecordChanges=True.
+    Produces real Word-compatible tracked changes.
+    Returns True on success, False if UNO unavailable.
+    """
+    import subprocess
+    import shutil
+
+    try:
+        import uno
+        from com.sun.star.beans import PropertyValue
+    except ImportError:
+        logger.info("UNO not available — will use python-docx fallback")
+        return False
+
+    try:
+        # Kill any existing LibreOffice
+        os.system("pkill -f 'soffice' 2>/dev/null")
+        time.sleep(1)
+
+        # Start LibreOffice in headless mode
+        subprocess.Popen([
+            'libreoffice', '--headless', '--invisible', '--nocrashreport',
+            '--nodefault', '--nolockcheck', '--nologo', '--norestore',
+            '--accept=socket,host=localhost,port=2002;urp;'
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(3)
+
+        # Connect
+        local_context = uno.getComponentContext()
+        resolver = local_context.ServiceManager.createInstanceWithContext(
+            "com.sun.star.bridge.UnoUrlResolver", local_context)
+        context = resolver.resolve(
+            "uno:socket,host=localhost,port=2002;urp;StarOffice.ComponentContext")
+        desktop = context.ServiceManager.createInstanceWithContext(
+            "com.sun.star.frame.Desktop", context)
+
+        # Open document
+        file_url = uno.systemPathToFileUrl(os.path.abspath(docx_path))
+        properties = (PropertyValue("Hidden", 0, True, 0),)
+        document = desktop.loadComponentFromURL(file_url, "_blank", 0, properties)
+
+        # Enable track changes
+        document.setPropertyValue("RecordChanges", True)
+
+        # Apply cascade/rules changes
+        search = document.createSearchDescriptor()
+        search.setPropertyValue("SearchRegularExpression", False)
+        search.setPropertyValue("SearchCaseSensitive", False)
+
+        applied = 0
+        for change in changes:
+            find_text = change.find
+            replace_text = change.replace
+            if not find_text or not replace_text:
+                continue
+
+            search.setSearchString(find_text)
+            found = document.findFirst(search)
+            if found:
+                found.setString(replace_text)
+                applied += 1
+            else:
+                # Try normalized (tabs→spaces)
+                import re
+                normalized = re.sub(r'[\t]+', ' ', find_text).strip()
+                search.setSearchString(normalized)
+                found = document.findFirst(search)
+                if found:
+                    found.setString(replace_text)
+                    applied += 1
+
+        # Apply manual edits
+        for edit in manual_edits:
+            original = edit.get("original", "")
+            new_text = edit.get("new", "")
+            if original and new_text and original != new_text:
+                search.setSearchString(original)
+                found = document.findFirst(search)
+                if found:
+                    found.setString(new_text)
+                    applied += 1
+
+        logger.info(f"UNO: Applied {applied} changes with track changes enabled")
+
+        # Save redlined version
+        save_props = (PropertyValue("FilterName", 0, "MS Word 2007 XML", 0),)
+        redline_url = uno.systemPathToFileUrl(os.path.abspath(redline_path))
+        document.storeAsURL(redline_url, save_props)
+
+        # Accept all changes for clean version
+        try:
+            document.setPropertyValue("RecordChanges", False)
+            redlines = document.getRedlines()
+            for i in range(redlines.getCount()):
+                redlines.getByIndex(0).accept()
+        except Exception as e:
+            logger.warning(f"UNO: Error accepting changes: {e}")
+
+        # Save clean version
+        clean_url = uno.systemPathToFileUrl(os.path.abspath(clean_path))
+        document.storeAsURL(clean_url, save_props)
+
+        document.close(True)
+        return True
+
+    except Exception as e:
+        logger.warning(f"UNO failed: {e}")
+        return False
+    finally:
+        time.sleep(1)
+        os.system("pkill -f 'soffice' 2>/dev/null")
 
 
 @app.get("/api/job/{job_id}/download/{file_type}")
