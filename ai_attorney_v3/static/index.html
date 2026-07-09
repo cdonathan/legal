@@ -214,8 +214,7 @@
         <!-- Action Bar -->
         <div class="action-bar" id="actionBar">
             <button class="btn btn-success" id="applyBtn" onclick="applySelected()">Apply Selected</button>
-            <button class="btn btn-outline" id="downloadRedlineBtn" onclick="downloadFile('redline_docx')">Download Redline</button>
-            <button class="btn btn-outline" id="downloadCleanBtn" onclick="downloadFile('clean_docx')">Download Clean</button>
+            <button class="btn btn-download" id="downloadBtn" onclick="downloadAll()" style="display:none;">Download All Files</button>
             <span class="count" id="selectedCount">0 changes selected</span>
         </div>
 
@@ -633,13 +632,14 @@
                     applyBtn.textContent = `✓ ${result.applied_count} Changes Applied`;
                     applyBtn.onclick = null;
 
-                    // Highlight download buttons
-                    document.getElementById('downloadRedlineBtn').className = 'btn btn-download';
-                    document.getElementById('downloadCleanBtn').className = 'btn btn-download';
+                    // Show Download button
+                    const downloadBtn = document.getElementById('downloadBtn');
+                    downloadBtn.style.display = 'inline-block';
+                    downloadBtn.className = 'btn btn-download';
 
                     // Update count text
                     const method = result.track_changes_method === 'libreoffice_uno' ? '(real track changes)' : '(visual redlines)';
-                    document.getElementById('selectedCount').textContent = `Documents ready for download ${method}`;
+                    document.getElementById('selectedCount').textContent = `Documents ready ${method}`;
 
                     // Hide save bar
                     document.getElementById('saveBar').classList.remove('visible');
@@ -653,6 +653,12 @@
 
         async function downloadFile(type) {
             window.open(`/api/job/${currentJobId}/download/${type}`, '_blank');
+        }
+
+        function downloadAll() {
+            downloadFile('redline_docx');
+            setTimeout(() => downloadFile('clean_docx'), 500);
+            setTimeout(() => downloadFile('redline_pdf'), 1000);
         }
 
         function escHtml(s) {
