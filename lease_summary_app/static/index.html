@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SeedJura – Agreement Summary</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #F8FAFC; color: #0F172A; line-height: 1.6; min-height: 100vh; }
+
+/* Header */
+header { background: #0F172A; color: #F8FAFC; padding: 18px 32px; display: flex; align-items: center; justify-content: space-between; }
+header h1 { font-size: 1.2rem; font-weight: 500; letter-spacing: -0.02em; }
+header h1 span { color: #DB752D; }
+header .subtitle { font-size: 0.82rem; color: #94A3B8; }
+
+.container { max-width: 900px; margin: 0 auto; padding: 40px 24px; }
+
+/* Upload Area */
+.upload-card {
+  background: white; border-radius: 16px; padding: 48px 32px;
+  border: 2px dashed #CBD5E1; text-align: center;
+  transition: border-color 0.3s, background 0.3s, transform 0.2s;
+  cursor: pointer; position: relative;
+}
+.upload-card:hover { border-color: #089498; background: #F0FDFA; }
+.upload-card.drag-over { border-color: #089498; background: #CCFBF1; transform: scale(1.01); }
+.upload-card.has-file { border-style: solid; border-color: #089498; cursor: default; }
+
+.upload-icon { margin-bottom: 8px; }
+
+/* Form elements */
+label { display: block; font-size: 0.8rem; font-weight: 500; color: #64748B; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.03em; }
+input[type="text"], select { width: 100%; padding: 10px 14px; font-size: 0.9rem; border: 1px solid #E2E8F0; border-radius: 8px; outline: none; transition: border-color 0.2s; font-family: inherit; background: white; }
+input[type="text"]:focus, select:focus { border-color: #089498; }
+
+/* Agreement type selector */
+.type-selector { margin-bottom: 16px; }
+.type-selector select { padding: 12px 14px; font-size: 0.92rem; font-weight: 500; }
+.type-badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.type-badge.lease { background: #DBEAFE; color: #1D4ED8; }
+.type-badge.auto { background: #F0FDF4; color: #15803D; }
+
+/* Mode buttons */
+.btn-mode { padding: 8px 18px; font-size: 0.85rem; font-weight: 500; background: #F1F5F9; color: #64748B; border: 1px solid #E2E8F0; border-radius: 8px; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+.btn-mode:hover { background: #F0FDFA; color: #089498; border-color: #089498; }
+.btn-mode.active { background: #089498; color: white; border-color: #089498; }
+
+/* Buttons */
+.btn-primary { padding: 12px 28px; font-size: 0.9rem; font-weight: 500; background: #089498; color: white; border: none; border-radius: 8px; cursor: pointer; transition: background 0.2s, transform 0.1s; font-family: inherit; }
+.btn-primary:hover { background: #067a7d; transform: translateY(-1px); }
+.btn-primary:disabled { background: #94A3B8; cursor: not-allowed; transform: none; }
+.btn-secondary { padding: 10px 24px; font-size: 0.85rem; font-weight: 500; background: white; color: #089498; border: 1.5px solid #089498; border-radius: 8px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.btn-secondary:hover { background: #F0FDFA; }
+
+/* Output folder setting */
+.folder-setting { display: flex; gap: 8px; align-items: flex-end; }
+.folder-setting input { flex: 1; }
+.folder-setting .btn-save { padding: 10px 16px; font-size: 0.82rem; font-weight: 500; background: #089498; color: white; border: none; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.folder-setting .btn-save:hover { background: #067a7d; }
+.folder-setting .btn-browse { padding: 10px 16px; font-size: 0.82rem; font-weight: 500; background: #334155; color: white; border: none; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.folder-setting .btn-browse:hover { background: #1E293B; }
+.folder-status { font-size: 0.78rem; margin-top: 4px; color: #059669; }
+.folder-status.error { color: #DC2626; }
+
+/* Folder browser modal */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.5); z-index: 1000; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: white; border-radius: 16px; width: 500px; max-width: 90vw; max-height: 70vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+.modal-header { padding: 18px 24px; border-bottom: 1px solid #E2E8F0; display: flex; align-items: center; justify-content: space-between; }
+.modal-header h3 { font-size: 1rem; font-weight: 600; }
+.modal-header .close-btn { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: #64748B; padding: 4px 8px; }
+.modal-header .close-btn:hover { color: #0F172A; }
+.modal-path { padding: 12px 24px; background: #F8FAFC; border-bottom: 1px solid #E2E8F0; font-family: monospace; font-size: 0.82rem; color: #334155; display: flex; align-items: center; gap: 8px; }
+.modal-path .up-btn { background: none; border: 1px solid #CBD5E1; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 0.78rem; color: #64748B; }
+.modal-path .up-btn:hover { background: #F1F5F9; }
+.modal-body { flex: 1; overflow-y: auto; padding: 8px 0; }
+.folder-item { display: flex; align-items: center; gap: 10px; padding: 10px 24px; cursor: pointer; font-size: 0.88rem; color: #1E293B; transition: background 0.1s; }
+.folder-item:hover { background: #F0FDFA; }
+.folder-item svg { flex-shrink: 0; color: #089498; }
+.modal-footer { padding: 14px 24px; border-top: 1px solid #E2E8F0; display: flex; justify-content: flex-end; gap: 10px; }
+.modal-footer .btn-select { padding: 10px 20px; font-size: 0.85rem; font-weight: 500; background: #089498; color: white; border: none; border-radius: 8px; cursor: pointer; }
+.modal-footer .btn-select:hover { background: #067a7d; }
+.modal-footer .btn-cancel { padding: 10px 20px; font-size: 0.85rem; font-weight: 500; background: white; color: #64748B; border: 1px solid #E2E8F0; border-radius: 8px; cursor: pointer; }
+.modal-footer .btn-cancel:hover { background: #F8FAFC; }
+
+/* Saved confirmation */
+.saved-banner { background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px; padding: 16px 20px; margin-top: 24px; }
+.saved-banner h4 { font-size: 0.85rem; font-weight: 600; color: #166534; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.saved-banner .folder-path { font-size: 0.82rem; color: #15803D; font-family: monospace; word-break: break-all; }
+.saved-banner .file-list { font-size: 0.8rem; color: #166534; margin-top: 8px; list-style: none; }
+.saved-banner .file-list li { padding: 2px 0; }
+.saved-banner .file-list li::before { content: "✓ "; color: #059669; }
+.btn-download { padding: 14px 32px; font-size: 0.95rem; font-weight: 600; background: #059669; color: white; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.btn-download:hover { background: #047857; transform: translateY(-1px); }
+
+/* Processing */
+#step-processing { display: none; }
+.processing-card { background: white; border-radius: 16px; padding: 48px 32px; text-align: center; border: 1px solid #E2E8F0; }
+.spinner { width: 48px; height: 48px; border: 4px solid #E2E8F0; border-top-color: #089498; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 20px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.phase-list { text-align: left; max-width: 400px; margin: 24px auto 0; }
+.phase-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 0.88rem; color: #64748B; }
+.phase-item.active { color: #089498; font-weight: 500; }
+.phase-item.done { color: #059669; }
+.phase-dot { width: 8px; height: 8px; border-radius: 50%; background: #E2E8F0; flex-shrink: 0; }
+.phase-item.active .phase-dot { background: #089498; animation: pulse 1s infinite; }
+.phase-item.done .phase-dot { background: #059669; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* Preview */
+#step-preview { display: none; }
+.preview-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.preview-header h2 { font-size: 1.2rem; font-weight: 600; }
+.stats-row { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+.stat-card { flex: 1; min-width: 140px; background: white; border-radius: 10px; padding: 16px 20px; border: 1px solid #E2E8F0; }
+.stat-card .label { font-size: 0.75rem; text-transform: uppercase; color: #64748B; letter-spacing: 0.04em; margin-bottom: 4px; }
+.stat-card .value { font-size: 1.3rem; font-weight: 600; color: #0F172A; }
+.stat-card .value.teal { color: #089498; }
+.stat-card .value.amber { color: #D97706; }
+.stat-card .value.blue { color: #2563EB; }
+
+.section-card { background: white; border-radius: 12px; border: 1px solid #E2E8F0; margin-bottom: 16px; overflow: hidden; }
+.section-title { font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #64748B; padding: 14px 20px; background: #F8FAFC; border-bottom: 1px solid #E2E8F0; }
+.field-row { display: flex; padding: 10px 20px; border-bottom: 1px solid #F1F5F9; align-items: baseline; }
+.field-row:last-child { border-bottom: none; }
+.field-label { width: 160px; flex-shrink: 0; font-size: 0.82rem; color: #64748B; font-weight: 500; }
+.field-value { flex: 1; font-size: 0.88rem; color: #1E293B; white-space: pre-wrap; }
+.field-value.empty { color: #CBD5E1; font-style: italic; }
+
+.actions-bar { display: flex; gap: 12px; justify-content: center; margin-top: 32px; padding-top: 24px; border-top: 1px solid #E2E8F0; }
+
+/* Error */
+.error-card { background: #FEF2F2; border: 1px solid #FECACA; border-radius: 12px; padding: 24px; text-align: center; color: #991B1B; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Seed<span>Jura</span></h1>
+    <div class="subtitle">Agreement Summary Generator</div>
+  </div>
+</header>
+
+<div class="container">
+  <!-- Step 1: Upload -->
+  <div id="step-upload">
+    <!-- Agreement Type + Output Folder -->
+    <div style="background: white; border-radius: 12px; padding: 20px 28px; margin-bottom: 20px; border: 1px solid #E2E8F0;">
+      <div class="type-selector">
+        <label for="agreement-type">Agreement Type</label>
+        <select id="agreement-type">
+          <option value="auto">Auto-Detect</option>
+        </select>
+      </div>
+      <div style="margin-bottom: 16px;">
+        <label>Processing Mode</label>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn-mode active" id="mode-single" onclick="setMode('single')">Single File</button>
+          <button class="btn-mode" id="mode-multi" onclick="setMode('multi')">Multi-File (Folder)</button>
+        </div>
+      </div>
+      <div>
+        <label for="output-folder">Output Folder</label>
+        <div class="folder-setting">
+          <input type="text" id="output-folder" placeholder="C:\seedJura\Summary_Output">
+          <button class="btn-browse" id="browse-folder-btn">Browse</button>
+          <button class="btn-save" id="save-folder-btn">Save</button>
+        </div>
+        <div class="folder-status" id="folder-status"></div>
+      </div>
+    </div>
+
+    <div class="upload-card" id="drop-zone">
+      <div class="upload-icon">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#089498" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </div>
+      <h2 style="margin: 16px 0 8px; font-size: 1.3rem; font-weight: 600;">Upload Agreement</h2>
+      <p style="color: #64748B; margin-bottom: 20px;">Drag &amp; drop a PDF or DOCX file, or click to browse</p>
+      <input type="file" id="file-input" accept=".pdf,.docx,.doc,.txt" hidden>
+      <button class="btn-secondary" id="browse-btn">Browse Files</button>
+      <div id="file-info" style="display:none; margin-top: 20px;"></div>
+    </div>
+
+    <!-- Multi-file folder input (hidden by default) -->
+    <div id="multi-file-panel" style="display:none;">
+      <div style="background: white; border-radius: 16px; padding: 32px; border: 2px solid #089498; text-align: center;">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#089498" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+        <h2 style="margin: 16px 0 8px; font-size: 1.3rem; font-weight: 600;">Select Tenant Folder</h2>
+        <p style="color: #64748B; margin-bottom: 20px;">Choose a folder containing all lease documents (original + amendments) for one tenant</p>
+        <div class="folder-setting" style="max-width: 500px; margin: 0 auto;">
+          <input type="text" id="source-folder" placeholder="C:\seedJura\Summary_Project\ALDO">
+          <button class="btn-browse" id="browse-source-btn">Browse</button>
+        </div>
+        <div id="source-folder-info" style="margin-top: 16px; font-size: 0.85rem; color: #64748B;"></div>
+      </div>
+    </div>
+
+    <!-- Options - shown after file selected -->
+    <div id="options-panel" style="display:none;">
+      <div style="background: white; border-radius: 12px; padding: 24px 28px; margin-top: 20px; border: 1px solid #E2E8F0;">
+        <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 16px; color: #334155;">Summary Details</h3>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div>
+            <label for="preparer">Prepared By</label>
+            <input type="text" id="preparer" placeholder="e.g., Phyllis Shuster">
+          </div>
+          <div>
+            <label for="purpose">Purpose</label>
+            <input type="text" id="purpose" placeholder="e.g., For the purchase of the property">
+          </div>
+        </div>
+        <button class="btn-primary" id="process-btn" style="margin-top: 20px; width: 100%;">
+          Generate Summary
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: Processing -->
+  <div id="step-processing">
+    <div class="processing-card">
+      <div class="spinner"></div>
+      <h2 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 8px;">Analyzing Agreement</h2>
+      <p style="color: #64748B; font-size: 0.9rem;" id="processing-file"></p>
+      <div id="processing-type" style="margin-top: 8px;"></div>
+      <div class="phase-list">
+        <div class="phase-item" id="phase-ingest"><span class="phase-dot"></span>Ingesting document</div>
+        <div class="phase-item" id="phase-pii"><span class="phase-dot"></span>Scanning for PII</div>
+        <div class="phase-item" id="phase-ai"><span class="phase-dot"></span>AI analysis &amp; extraction</div>
+        <div class="phase-item" id="phase-generate"><span class="phase-dot"></span>Generating summary document</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Preview -->
+  <div id="step-preview">
+    <div class="preview-header">
+      <h2>Summary Preview</h2>
+      <button class="btn-secondary" id="new-upload-btn">+ New Upload</button>
+    </div>
+    <div class="stats-row" id="stats-row"></div>
+    <div id="preview-sections"></div>
+    <div id="saved-area"></div>
+    <div class="actions-bar">
+      <button class="btn-secondary" id="restart-btn">Process Another</button>
+    </div>
+  </div>
+
+  <!-- Error state -->
+  <div id="step-error" style="display:none;">
+    <div class="error-card">
+      <h3 style="margin-bottom: 8px;">Processing Error</h3>
+      <p id="error-message"></p>
+      <button class="btn-secondary" style="margin-top: 16px;" id="error-retry-btn">Try Again</button>
+    </div>
+  </div>
+</div>
+
+<!-- Folder Browser Modal -->
+<div class="modal-overlay" id="folder-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Select Output Folder</h3>
+      <button class="close-btn" id="modal-close">&times;</button>
+    </div>
+    <div class="modal-path">
+      <button class="up-btn" id="modal-up">&#8593; Up</button>
+      <span id="modal-current-path">/mnt/c</span>
+    </div>
+    <div class="modal-body" id="modal-folders"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" id="modal-cancel">Cancel</button>
+      <button class="btn-select" id="modal-select">Select This Folder</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let selectedFile = null;
+let currentJobId = null;
+let agreementTypes = {};
+let outputFolder = '';
+let currentMode = 'single'; // 'single' or 'multi'
+
+// ============================================================
+// DOM REFS
+// ============================================================
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const browseBtn = document.getElementById('browse-btn');
+const fileInfo = document.getElementById('file-info');
+const optionsPanel = document.getElementById('options-panel');
+const processBtn = document.getElementById('process-btn');
+const stepUpload = document.getElementById('step-upload');
+const stepProcessing = document.getElementById('step-processing');
+const stepPreview = document.getElementById('step-preview');
+const stepError = document.getElementById('step-error');
+const typeSelect = document.getElementById('agreement-type');
+const folderInput = document.getElementById('output-folder');
+const saveFolderBtn = document.getElementById('save-folder-btn');
+const browseFolderBtn = document.getElementById('browse-folder-btn');
+const folderStatus = document.getElementById('folder-status');
+const folderModal = document.getElementById('folder-modal');
+let browserCurrentPath = '/mnt/c';
+
+// ============================================================
+// INIT - Load agreement types and settings
+// ============================================================
+async function loadAgreementTypes() {
+  try {
+    const resp = await fetch('/api/agreement-types');
+    agreementTypes = await resp.json();
+    for (const [id, info] of Object.entries(agreementTypes)) {
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = info.name;
+      typeSelect.appendChild(opt);
+    }
+  } catch (e) {
+    console.warn('Could not load agreement types:', e);
+  }
+}
+
+async function loadSettings() {
+  try {
+    const resp = await fetch('/api/settings');
+    const settings = await resp.json();
+    outputFolder = settings.output_folder || '';
+    folderInput.value = outputFolder;
+    if (outputFolder) {
+      folderStatus.textContent = 'Saved ✓';
+      folderStatus.className = 'folder-status';
+    }
+  } catch (e) {
+    console.warn('Could not load settings:', e);
+  }
+}
+
+loadAgreementTypes();
+loadSettings();
+
+// ============================================================
+// OUTPUT FOLDER
+// ============================================================
+saveFolderBtn.addEventListener('click', saveFolder);
+folderInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveFolder(); });
+
+async function saveFolder() {
+  const folder = folderInput.value.trim();
+  if (!folder) {
+    folderStatus.textContent = 'Please enter a folder path';
+    folderStatus.className = 'folder-status error';
+    return;
+  }
+  try {
+    const formData = new FormData();
+    formData.append('output_folder', folder);
+    const resp = await fetch('/api/settings', { method: 'PUT', body: formData });
+    if (!resp.ok) {
+      const data = await resp.json();
+      throw new Error(data.detail || 'Failed to save');
+    }
+    outputFolder = folder;
+    folderStatus.textContent = 'Saved ✓';
+    folderStatus.className = 'folder-status';
+  } catch (e) {
+    folderStatus.textContent = e.message;
+    folderStatus.className = 'folder-status error';
+  }
+}
+
+// ============================================================
+// FOLDER BROWSER
+// ============================================================
+browseFolderBtn.addEventListener('click', openFolderBrowser);
+document.getElementById('modal-close').addEventListener('click', closeFolderBrowser);
+document.getElementById('modal-cancel').addEventListener('click', closeFolderBrowser);
+document.getElementById('modal-select').addEventListener('click', selectFolder);
+document.getElementById('modal-up').addEventListener('click', () => {
+  const parent = document.getElementById('modal-current-path').dataset.parent;
+  if (parent) loadFolderList(parent);
+});
+
+function openFolderBrowser() {
+  folderModal.classList.add('open');
+  folderModal.dataset.target = 'output-folder';
+  // Start from current value or default
+  const startPath = folderInput.value.trim() || 'C:\\';
+  loadFolderList(startPath);
+}
+
+function closeFolderBrowser() {
+  folderModal.classList.remove('open');
+}
+
+function selectFolder() {
+  const target = folderModal.dataset.target || 'output-folder';
+  document.getElementById(target).value = browserCurrentPath;
+  closeFolderBrowser();
+  if (target === 'output-folder') {
+    saveFolder();
+  } else if (target === 'source-folder') {
+    // Show file count preview for multi-file
+    checkSourceFolder();
+  }
+  folderModal.dataset.target = '';
+}
+
+async function checkSourceFolder() {
+  const folder = document.getElementById('source-folder').value.trim();
+  const info = document.getElementById('source-folder-info');
+  if (!folder) { info.textContent = ''; return; }
+  try {
+    const resp = await fetch(`/api/browse-folders?path=${encodeURIComponent(folder)}`);
+    if (resp.ok) {
+      // Count files (we can't directly, but we know the folder is valid)
+      info.innerHTML = `<span style="color:#059669;">✓ Folder found. All PDF/DOCX files will be processed.</span>`;
+      optionsPanel.style.display = 'block';
+    } else {
+      info.innerHTML = `<span style="color:#DC2626;">Folder not accessible</span>`;
+    }
+  } catch(e) {
+    info.innerHTML = `<span style="color:#DC2626;">Error checking folder</span>`;
+  }
+}
+
+async function loadFolderList(path) {
+  const container = document.getElementById('modal-folders');
+  container.innerHTML = '<div style="padding:20px; text-align:center; color:#64748B;">Loading...</div>';
+
+  try {
+    const resp = await fetch(`/api/browse-folders?path=${encodeURIComponent(path)}`);
+    if (!resp.ok) {
+      // If path doesn't exist, try parent
+      const sep = path.includes('/') ? '/' : '\\';
+      const parent = path.substring(0, path.lastIndexOf(sep)) || 'C:\\';
+      if (parent !== path) {
+        loadFolderList(parent);
+        return;
+      }
+      throw new Error('Cannot read directory');
+    }
+    const data = await resp.json();
+
+    browserCurrentPath = data.current;
+    document.getElementById('modal-current-path').textContent = data.current;
+    document.getElementById('modal-current-path').dataset.parent = data.parent || '';
+
+    if (data.folders.length === 0) {
+      container.innerHTML = '<div style="padding:20px; text-align:center; color:#94A3B8; font-size:0.85rem;">No subfolders</div>';
+      return;
+    }
+
+    container.innerHTML = data.folders.map(name => {
+      const childPath = data.current.endsWith('\\') ? data.current + name : data.current + '\\' + name;
+      return `
+        <div class="folder-item" data-path="${childPath}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          ${name}
+        </div>
+      `;
+    }).join('');
+
+    // Click to navigate into folder
+    container.querySelectorAll('.folder-item').forEach(item => {
+      item.addEventListener('click', () => {
+        loadFolderList(item.dataset.path);
+      });
+    });
+
+  } catch (e) {
+    container.innerHTML = `<div style="padding:20px; text-align:center; color:#DC2626; font-size:0.85rem;">${e.message}</div>`;
+  }
+}
+
+// ============================================================
+// MODE SWITCHING
+// ============================================================
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('mode-single').classList.toggle('active', mode === 'single');
+  document.getElementById('mode-multi').classList.toggle('active', mode === 'multi');
+  document.getElementById('drop-zone').style.display = mode === 'single' ? 'block' : 'none';
+  document.getElementById('multi-file-panel').style.display = mode === 'multi' ? 'block' : 'none';
+  // Show options panel for multi mode too
+  if (mode === 'multi') {
+    optionsPanel.style.display = 'block';
+  } else if (!selectedFile) {
+    optionsPanel.style.display = 'none';
+  }
+}
+
+// Multi-file source folder browse
+document.getElementById('browse-source-btn').addEventListener('click', () => {
+  // Reuse the folder browser modal but target the source folder input
+  folderModal.classList.add('open');
+  folderModal.dataset.target = 'source-folder';
+  const startPath = document.getElementById('source-folder').value.trim() || 'C:\\seedJura\\Summary_Project';
+  loadFolderList(startPath);
+});
+
+// ============================================================
+// DRAG & DROP
+// ============================================================
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('drag-over');
+});
+dropZone.addEventListener('dragleave', () => {
+  dropZone.classList.remove('drag-over');
+});
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const files = e.dataTransfer.files;
+  if (files.length > 0) handleFile(files[0]);
+});
+dropZone.addEventListener('click', (e) => {
+  if (!selectedFile) fileInput.click();
+});
+browseBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  fileInput.click();
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length > 0) handleFile(fileInput.files[0]);
+});
+
+function handleFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!['pdf', 'docx', 'doc', 'txt'].includes(ext)) {
+    alert('Please upload a PDF, DOCX, or TXT file.');
+    return;
+  }
+  selectedFile = file;
+  dropZone.classList.add('has-file');
+
+  const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+  fileInfo.style.display = 'block';
+  fileInfo.innerHTML = `
+    <div style="display:flex; align-items:center; justify-content:center; gap:10px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <span style="font-weight:500; color:#1E293B;">${file.name}</span>
+      <span style="color:#64748B; font-size:0.82rem;">(${sizeMB} MB)</span>
+      <button onclick="clearFile(event)" style="background:none; border:none; cursor:pointer; color:#EF4444; font-size:1.1rem; padding:4px;">&#10005;</button>
+    </div>
+  `;
+  optionsPanel.style.display = 'block';
+}
+
+function clearFile(e) {
+  if (e) e.stopPropagation();
+  selectedFile = null;
+  fileInput.value = '';
+  dropZone.classList.remove('has-file');
+  fileInfo.style.display = 'none';
+  optionsPanel.style.display = 'none';
+}
+
+// ============================================================
+// PROCESS
+// ============================================================
+processBtn.addEventListener('click', startProcessing);
+
+async function startProcessing() {
+  if (currentMode === 'single' && !selectedFile) return;
+  if (currentMode === 'multi' && !document.getElementById('source-folder').value.trim()) {
+    alert('Please select a source folder.');
+    return;
+  }
+
+  processBtn.disabled = true;
+  processBtn.textContent = 'Processing...';
+
+  // Show processing view
+  showStep('processing');
+
+  const selectedType = typeSelect.value;
+
+  if (currentMode === 'multi') {
+    // Multi-file folder processing
+    const sourceFolder = document.getElementById('source-folder').value.trim();
+    document.getElementById('processing-file').textContent = `Folder: ${sourceFolder}`;
+    document.getElementById('processing-type').innerHTML = `<span class="type-badge lease">Multi-File Summary</span>`;
+
+    animatePhase('ingest');
+
+    const formData = new FormData();
+    formData.append('folder_path', sourceFolder);
+    formData.append('preparer', document.getElementById('preparer').value);
+    formData.append('purpose', document.getElementById('purpose').value);
+    formData.append('agreement_type', selectedType);
+
+    try {
+      animatePhase('pii');
+      await sleep(300);
+      animatePhase('ai');
+
+      const resp = await fetch('/api/upload-folder', { method: 'POST', body: formData });
+      const data = await resp.json();
+
+      if (!resp.ok || data.status === 'error') {
+        throw new Error(data.error || 'Processing failed');
+      }
+
+      animatePhase('generate');
+      await sleep(400);
+      completePhases();
+
+      currentJobId = data.job_id;
+      await sleep(600);
+      await showPreview(data);
+
+    } catch (err) {
+      showError(err.message);
+    }
+  } else {
+    // Single file processing (existing logic)
+    document.getElementById('processing-file').textContent = selectedFile.name;
+    const typeLabel = selectedType === 'auto' ? 'Auto-Detecting...' : (agreementTypes[selectedType]?.name || selectedType);
+    document.getElementById('processing-type').innerHTML = `<span class="type-badge ${selectedType === 'auto' ? 'auto' : 'lease'}">${typeLabel}</span>`;
+
+    animatePhase('ingest');
+    await sleep(300);
+    animatePhase('pii');
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('preparer', document.getElementById('preparer').value);
+    formData.append('purpose', document.getElementById('purpose').value);
+    formData.append('agreement_type', selectedType);
+
+    try {
+      animatePhase('ai');
+      const resp = await fetch('/api/upload', { method: 'POST', body: formData });
+      const data = await resp.json();
+
+      if (!resp.ok || data.status === 'error') {
+        throw new Error(data.error || 'Processing failed');
+      }
+
+      animatePhase('generate');
+      await sleep(400);
+      completePhases();
+
+      currentJobId = data.job_id;
+      await sleep(600);
+      await showPreview(data);
+
+    } catch (err) {
+      showError(err.message);
+    }
+  }
+}
+
+function animatePhase(phase) {
+  const el = document.getElementById('phase-' + phase);
+  const phases = ['ingest', 'pii', 'ai', 'generate'];
+  const idx = phases.indexOf(phase);
+  for (let i = 0; i < idx; i++) {
+    const prev = document.getElementById('phase-' + phases[i]);
+    prev.classList.remove('active');
+    prev.classList.add('done');
+  }
+  el.classList.add('active');
+}
+
+function completePhases() {
+  document.querySelectorAll('.phase-item').forEach(el => {
+    el.classList.remove('active');
+    el.classList.add('done');
+  });
+}
+
+// ============================================================
+// PREVIEW
+// ============================================================
+async function showPreview(uploadData) {
+  const resp = await fetch(`/api/preview/${currentJobId}`);
+  const data = await resp.json();
+
+  // Stats
+  const statsRow = document.getElementById('stats-row');
+  const isMulti = uploadData.mode === 'multi_file';
+  if (isMulti) {
+    statsRow.innerHTML = `
+      <div class="stat-card"><div class="label">Agreement Type</div><div class="value blue">${data.agreement_name || 'Unknown'}</div></div>
+      <div class="stat-card"><div class="label">Documents</div><div class="value teal">${uploadData.file_count}</div></div>
+      <div class="stat-card"><div class="label">Fields Extracted</div><div class="value teal">${uploadData.fields_extracted} / ${uploadData.fields_total}</div></div>
+      <div class="stat-card"><div class="label">Fields with History</div><div class="value amber">${uploadData.fields_with_history}</div></div>
+    `;
+  } else {
+    statsRow.innerHTML = `
+      <div class="stat-card"><div class="label">Agreement Type</div><div class="value blue">${data.agreement_name || 'Unknown'}</div></div>
+      <div class="stat-card"><div class="label">Fields Extracted</div><div class="value teal">${uploadData.fields_extracted} / ${uploadData.fields_total}</div></div>
+      <div class="stat-card"><div class="label">PII Detected</div><div class="value amber">${uploadData.pii_count}</div></div>
+    `;
+  }
+
+  // Sections
+  const container = document.getElementById('preview-sections');
+  container.innerHTML = '';
+  const dates = data.normalized_dates || {};
+  for (const section of data.sections) {
+    let html = `<div class="section-card"><div class="section-title">${section.title}</div>`;
+    for (const item of section.items) {
+      const val = item.value || '';
+      const cls = val ? '' : ' empty';
+      const displayVal = val ? val.replace(/</g, '&lt;').replace(/>/g, '&gt;') : '—';
+      // Show normalized date badge if available
+      const normDate = dates[item.key];
+      const dateBadge = normDate ? `<span style="display:inline-block;background:#DBEAFE;color:#1D4ED8;font-size:0.75rem;font-weight:600;padding:2px 8px;border-radius:4px;margin-right:8px;">${normDate}</span>` : '';
+      html += `<div class="field-row"><div class="field-label">${item.label}</div><div class="field-value${cls}">${dateBadge}${displayVal}</div></div>`;
+    }
+    html += '</div>';
+    container.innerHTML += html;
+  }
+
+  // Saved files banner
+  const savedArea = document.getElementById('saved-area');
+  if (uploadData.saved_to_folder && uploadData.saved_files && uploadData.saved_files.length > 0) {
+    let fileListHtml = uploadData.saved_files.map(f => `<li>${f}</li>`).join('');
+    savedArea.innerHTML = `
+      <div class="saved-banner">
+        <h4><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Files saved automatically</h4>
+        <div class="folder-path">${uploadData.saved_to_folder}</div>
+        <ul class="file-list">${fileListHtml}</ul>
+      </div>
+    `;
+  } else {
+    savedArea.innerHTML = `
+      <div class="saved-banner" style="background:#FEF3C7; border-color:#FDE68A;">
+        <h4 style="color:#92400E;">⚠ No output folder configured</h4>
+        <p style="font-size:0.82rem; color:#92400E;">Set an output folder above to automatically save files after processing.</p>
+      </div>
+    `;
+  }
+
+  showStep('preview');
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+document.getElementById('new-upload-btn').addEventListener('click', resetAll);
+document.getElementById('restart-btn').addEventListener('click', resetAll);
+document.getElementById('error-retry-btn').addEventListener('click', resetAll);
+
+function resetAll() {
+  clearFile();
+  currentJobId = null;
+  processBtn.disabled = false;
+  processBtn.textContent = 'Generate Summary';
+  document.querySelectorAll('.phase-item').forEach(el => {
+    el.classList.remove('active', 'done');
+  });
+  document.getElementById('source-folder').value = '';
+  document.getElementById('source-folder-info').textContent = '';
+  showStep('upload');
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function showStep(step) {
+  stepUpload.style.display = step === 'upload' ? 'block' : 'none';
+  stepProcessing.style.display = step === 'processing' ? 'block' : 'none';
+  stepPreview.style.display = step === 'preview' ? 'block' : 'none';
+  stepError.style.display = step === 'error' ? 'block' : 'none';
+}
+
+function showError(msg) {
+  document.getElementById('error-message').textContent = msg;
+  showStep('error');
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+
+</body>
+</html>

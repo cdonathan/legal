@@ -1,0 +1,475 @@
+{
+  "name": "Commercial Lease",
+  "description": "Commercial real estate lease agreements, amendments, and addenda",
+  "template_path": "SeedJura_Lease_Summary_FORM.docx",
+
+  "doc_type_signals": {
+    "filename": ["lease", "sublease", "ground lease"],
+    "header": [
+      "lease agreement",
+      "commercial lease",
+      "office lease",
+      "industrial lease",
+      "retail lease",
+      "ground lease",
+      "sublease agreement",
+      "landlord",
+      "tenant",
+      "demised premises",
+      "leased premises"
+    ]
+  },
+
+  "sub_types": {
+    "amendment": {
+      "filename_signals": ["amendment", "amend"],
+      "header_signals": [
+        "amendment to lease",
+        "first amendment",
+        "second amendment",
+        "third amendment",
+        "fourth amendment",
+        "fifth amendment",
+        "amendment no.",
+        "amendment number",
+        "this amendment",
+        "amends the lease",
+        "modification to lease",
+        "lease modification"
+      ],
+      "ai_instruction": "IMPORTANT - THIS DOCUMENT IS A LEASE AMENDMENT:\n- This is NOT a full lease. It only modifies specific sections of the original lease.\n- For fields that are NOT addressed in this amendment, return \"See Original Lease.\"\n- Only extract fields that are explicitly stated or modified in this amendment.\n- DO NOT guess or fabricate values for sections that would only be in the original lease.\n- Fields commonly NOT in an amendment: insurance, repair obligations, OPEX, assignment details, holdover, SNDA, relocation, signage.\n- Fields commonly IN an amendment: parties, premises changes, rent changes, term extensions, specific clause modifications.",
+      "skip_fields": [
+        "Tenant_Insurance", "Landlord_Repair_Obligations", "Tenant_Repair_Obligations",
+        "OPEX_Inclusion", "OPEX_Exclusion", "Utilities", "Fees_Management",
+        "Gross_Up_Percent_Language", "Assignment_LL_Decision", "Assignment_Rent_Profit",
+        "Assignment_Recapture_Space", "Assignment_Process_Fee", "Assignment_Other_Terms",
+        "Assignment_Change_Control", "Sublease_Terms", "Holdover_Rent",
+        "Estoppel_Return_Period", "Estoppel_Details",
+        "SNDA_Subject_Existing_Mortgages", "SNDA_Subject_Future_Mortgages",
+        "SNDA_Subject_Existing_GroundLease", "SNDA_Subject_Future_GroundLease",
+        "SNDA_Required_by_Lender_Provision",
+        "Relocation_Rights", "Relocation_Notice_Period", "Relocation_Language",
+        "Relocation_Cost", "Relocation_Termination_Rights",
+        "Signage_Allowed", "Signage_Location", "Signage_Approval_Required",
+        "Signage_Type", "Signage_Renovation_Replacement", "Signage_Removal",
+        "Other_Rights"
+      ]
+    },
+    "addendum": {
+      "filename_signals": ["addendum"],
+      "header_signals": [
+        "addendum to lease",
+        "lease addendum",
+        "this addendum"
+      ],
+      "ai_instruction": "IMPORTANT - THIS DOCUMENT IS A LEASE ADDENDUM:\n- This is NOT a full lease. It only modifies specific sections of the original lease.\n- For fields that are NOT addressed in this addendum, return \"See Original Lease.\"\n- Only extract fields that are explicitly stated or modified in this addendum.\n- DO NOT guess or fabricate values for sections that would only be in the original lease.",
+      "skip_fields": []
+    }
+  },
+
+  "system_prompt": "You are a commercial lease data extractor. You ONLY copy and paste exact text from lease documents. You NEVER summarize, paraphrase, or use your own words. Every value you return must appear verbatim in the source document.",
+
+  "extraction_rules": "CRITICAL RULES - READ CAREFULLY:\n- You MUST copy/paste exact language from the document. Do NOT summarize, paraphrase, or reword.\n- Every value you return must be text that appears verbatim in the document.\n- If a provision is not found or not applicable, return \"None.\" (with period).\n- For dates, copy the exact phrasing (e.g., \"the earlier to occur of A) November 1, 2022, or B) the earlier of...\").\n- For dollar amounts, copy exactly as written including $ sign.\n- For percentages, copy exactly as written.\n- Include section/article references when they appear near the relevant text (e.g., \"Sec. 7 -\", \"Section 37 -\").\n- IMPORTANT: Start each extraction at the BEGINNING of the relevant sentence or clause. Do not start mid-sentence.\n- For long provisions (assignment, insurance, repair, OPEX, permitted use): copy the FULL relevant clause starting from its topic sentence. Include up to 300 words.\n- When a provision states \"None\" or the concept does not exist in the lease, return \"None.\"\n- For options (ROFR, ROFO, Expansion, Purchase, Early Termination, Reduction): if the lease does not grant such an option, return \"None.\"\n- For Permitted Use: find the clause that states what the premises may be used for. Start from \"Tenant shall use\" or equivalent.\n- For Commencement Date: copy the full definition including all conditions (A, B, C options if present).\n- For OPEX: start from the beginning of the list (e.g., \"a) grounds maintenance...\" not mid-list).",
+
+  "fields": {
+    "Lease_Summary_Preparer": "Name of person preparing this summary",
+    "Lease_Summary_Date": "Date the summary was prepared",
+    "Lease_Summary_Purpose": "Purpose of the summary (e.g., purchase, review)",
+    "Property_Name": "Name of the property/project",
+    "Property_Address_1": "Street address line 1",
+    "Property_Address_2": "Street address line 2 (suite, unit)",
+    "Property_Address_City": "City",
+    "Property_Address_State": "State",
+    "Property_Address_Zip": "Zip code",
+    "Owner_Name": "Property owner/landlord name",
+    "Owner_StReg": "Owner state of registration",
+    "Owner_Type": "Owner entity type (e.g., LLC, Corp)",
+    "Tenant_Name": "Tenant legal name",
+    "Tenant_StReg": "Tenant state of registration",
+    "Tenant_Type": "Tenant entity type",
+    "Tenant_DBA": "Tenant DBA (doing business as) name",
+    "Tenant_Address_1": "Tenant address line 1",
+    "Tenant_Address_2": "Tenant address line 2",
+    "Tenant_Address_City": "Tenant city",
+    "Tenant_Address_State": "Tenant state",
+    "Tenant_Address_Zip": "Tenant zip",
+    "Tenant_Contact": "Tenant contact person",
+    "Tenant_CopyTo_Address_1": "Notice copy-to address line 1",
+    "Tenant_CopyTo_Address_2": "Notice copy-to address line 2",
+    "Tenant_CopyTo_Address_City": "Notice copy-to city",
+    "Tenant_CopyTo_Address_State": "Notice copy-to state",
+    "Tenant_CopyTo_Address_Zip": "Notice copy-to zip",
+    "Tenant_CopyTo_Attn": "Notice copy-to attention name",
+    "Tenant_CopyTo_Email": "Notice copy-to email",
+    "Tenant_Attn": "Tenant attention/contact person",
+    "Tenant_Email": "Tenant email address",
+    "Premises_UnitNumber_Description": "Suite/unit number and description",
+    "Premises_SqFt": "Square footage of premises",
+    "LeaseAgr_Name": "Name/title of the lease agreement",
+    "LeaseAgr_Amendments": "Any amendments to the lease",
+    "Date_Lease": "Lease effective date",
+    "Date_Commencment": "Commencement date - include FULL conditional language if applicable",
+    "Lease_Term": "Length of lease term with full description",
+    "Date_Expiration": "Expiration date with full conditional language",
+    "Date_EarlyAccess": "Early access terms - full language",
+    "Renewal_Option_Numbers": "Number of renewal options with conditions (e.g., doesn't apply to Assignment)",
+    "Renewal_Option_Period_PerOption": "Period per renewal option",
+    "Amt_Security_Deposit": "Security deposit amount",
+    "Rent_BaseRent_PSF": "Base rent per square foot",
+    "Rent_BaseRent_Amt": "Base rent annual amount",
+    "Rent_BaseRent_Monthly": "Base rent monthly amount",
+    "Rent_AnnualIncrease_Percentage": "Annual rent increase percentage",
+    "Base_Year": "Base year for operating expenses",
+    "Rent_Abatement_Commencement": "Rent abatement start date",
+    "Rent_Abatement_Expiration": "Rent abatement end date",
+    "Rent_Abatement_Duration": "Rent abatement duration",
+    "Rent_Abatement_Base_Rent": "Is base rent abated?",
+    "Rent_Abatement_Additional_Rent": "Is additional rent abated?",
+    "Rent_Abatement_Qualifier": "Conditions for rent abatement",
+    "Tenant_Share_Percentage": "Tenant's percentage share of expenses",
+    "Rent_PercentageRent_ThresholdAmt": "Percentage rent threshold",
+    "Rent_PercentageRent_Percent": "Percentage rent rate",
+    "Tenant_Allowance_PSF": "Tenant improvement allowance per sq ft",
+    "Tenant_Allowance_Total": "Total tenant improvement allowance",
+    "Permitted_Use_Description": "Permitted use - quote full clause including restrictions",
+    "Parking_Reserved_Spaces": "Reserved parking spaces with description",
+    "Parking_Unreserved_Spaces": "Unreserved parking spaces with description",
+    "Parking_Reserved_Amt_Fees": "Reserved parking fees",
+    "Parking_Unreserved_Amt_Fees": "Unreserved parking fees",
+    "Guarantor_Name": "Guarantor name",
+    "Guarantor_StReg": "Guarantor state of registration",
+    "Guarantor_Type": "Guarantor entity type",
+    "Guaranty_Term": "Term of the guaranty",
+    "Broker_Landlord_Name": "Landlord's broker",
+    "Broker_Tenant_Name": "Tenant's broker",
+    "Tenant_Improvements_Description": "Landlord work / tenant improvements - full description with dollar amounts",
+    "ROFR_Space": "ROFR applicable space (or 'None' if not applicable)",
+    "ROFR_Description": "ROFR description - full language",
+    "ROFO_Space": "ROFO applicable space (or 'None' if not applicable)",
+    "ROFO_Description": "ROFO description - full language",
+    "Expansion_Space": "Expansion option space (or 'None' if not applicable)",
+    "Expansion_Description": "Expansion option description",
+    "Early_Termination_Description": "Early termination terms - include BOTH tenant and landlord rights",
+    "Reduction_Description": "Reduction option description (or 'None')",
+    "Purchase_Option_Space": "Purchase option applicable space (or 'None')",
+    "Purchase_Option_Description": "Purchase option description - full language",
+    "OPEX_Inclusion": "Operating expense inclusions - list ALL included items",
+    "OPEX_Exclusion": "Operating expense exclusions - list ALL excluded items (or 'None')",
+    "Utilities": "Utility provisions - full language describing who pays and what's included",
+    "Fees_Management": "Admin/management/accounting fees - full language",
+    "Gross_Up_Percent_Language": "Gross up percentage language - full clause with cap language",
+    "Tenant_Insurance": "Tenant insurance requirements - include section ref and key requirements (types of coverage, amounts, ratings)",
+    "Landlord_Repair_Obligations": "Landlord repair and maintenance - full language with section ref",
+    "Tenant_Repair_Obligations": "Tenant repair and maintenance - full language with section ref",
+    "Assignment_3rd_Parties": "Assignment to 3rd parties - full language including consent requirements, fees, conditions",
+    "Assignment_Affiliates": "Assignment to affiliates - full language",
+    "Assignment_LL_Decision": "Landlord decision on assignment - full criteria for reasonable/unreasonable withholding",
+    "Assignment_Rent_Profit": "Rent profits from assignment - how excess rent is shared",
+    "Assignment_Recapture_Space": "Landlord recapture of space - full language (e.g., 'Yes, can terminate lease rather than approve')",
+    "Assignment_Process_Fee": "Assignment processing fee amount",
+    "Assignment_Other_Terms": "Other assignment terms",
+    "Assignment_Change_Control": "Assignment change of control terms",
+    "Sublease_Terms": "Sublease terms - full language or reference to assignment section",
+    "Holdover_Rent": "Holdover rent terms with section ref and percentage (e.g., 'Sec. 28 - 150% of the rent')",
+    "Estoppel_Return_Period": "Estoppel return period",
+    "Estoppel_Details": "Estoppel details to be included",
+    "SNDA_Subject_Existing_Mortgages": "Subject to existing mortgages (Yes/No)",
+    "SNDA_Subject_Future_Mortgages": "Subject to future mortgages (Yes/No)",
+    "SNDA_Subject_Existing_GroundLease": "Subject to existing ground leases",
+    "SNDA_Subject_Future_GroundLease": "Subject to future ground leases",
+    "SNDA_Required_by_Lender_Provision": "SNDA requested by lender language",
+    "Relocation_Rights": "Relocation allowed (Yes/No)",
+    "Relocation_Notice_Period": "Relocation notice period",
+    "Relocation_Language": "Relocation language",
+    "Relocation_Cost": "Relocation costs",
+    "Relocation_Termination_Rights": "Termination rights",
+    "Signage_Allowed": "Signage allowed (Yes/No)",
+    "Signage_Location": "Signage location",
+    "Signage_Approval_Required": "Signage approval required",
+    "Signage_Type": "Type of signage",
+    "Signage_Renovation_Replacement": "Signage renovation/replacement",
+    "Signage_Removal": "Signage removal terms",
+    "Other_Rights": "Other rights and provisions"
+  },
+
+  "short_fields": [
+    "Lease_Summary_Preparer", "Lease_Summary_Date", "Lease_Summary_Purpose",
+    "Property_Name", "Property_Address_1", "Property_Address_2",
+    "Property_Address_City", "Property_Address_State", "Property_Address_Zip",
+    "Owner_Name", "Owner_StReg", "Owner_Type",
+    "Tenant_Name", "Tenant_StReg", "Tenant_Type", "Tenant_DBA",
+    "Tenant_Address_1", "Tenant_Address_2", "Tenant_Address_City",
+    "Tenant_Address_State", "Tenant_Address_Zip", "Tenant_Attn", "Tenant_Email",
+    "Tenant_CopyTo_Address_1", "Tenant_CopyTo_Address_2",
+    "Tenant_CopyTo_Address_City", "Tenant_CopyTo_Address_State",
+    "Tenant_CopyTo_Address_Zip", "Tenant_CopyTo_Attn", "Tenant_CopyTo_Email",
+    "Premises_UnitNumber_Description", "Premises_SqFt",
+    "LeaseAgr_Name", "Date_Lease",
+    "Amt_Security_Deposit", "Rent_BaseRent_PSF", "Rent_BaseRent_Amt",
+    "Rent_BaseRent_Monthly", "Rent_AnnualIncrease_Percentage", "Base_Year",
+    "Tenant_Share_Percentage", "Rent_PercentageRent_ThresholdAmt",
+    "Rent_PercentageRent_Percent", "Tenant_Allowance_PSF", "Tenant_Allowance_Total",
+    "Parking_Reserved_Amt_Fees", "Parking_Unreserved_Amt_Fees",
+    "Guarantor_Name", "Guarantor_StReg", "Guarantor_Type",
+    "Broker_Landlord_Name", "Broker_Tenant_Name",
+    "Assignment_Process_Fee", "Estoppel_Return_Period",
+    "SNDA_Subject_Existing_Mortgages", "SNDA_Subject_Future_Mortgages",
+    "SNDA_Subject_Existing_GroundLease", "SNDA_Subject_Future_GroundLease",
+    "Relocation_Rights", "Relocation_Notice_Period",
+    "Signage_Allowed", "Signage_Approval_Required", "Signage_Type",
+    "Renewal_Option_Numbers", "Renewal_Option_Period_PerOption",
+    "ROFR_Space", "ROFO_Space", "Expansion_Space",
+    "Purchase_Option_Space", "Reduction_Description"
+  ],
+
+  "none_fields": [
+    "ROFR_Space", "ROFR_Description", "ROFO_Space", "ROFO_Description",
+    "Expansion_Space", "Expansion_Description",
+    "Early_Termination_Description", "Reduction_Description",
+    "Purchase_Option_Space", "Purchase_Option_Description",
+    "Guaranty_Term", "Gross_Up_Percent_Language",
+    "Assignment_LL_Decision", "Assignment_Rent_Profit",
+    "Assignment_Recapture_Space", "Assignment_Change_Control"
+  ],
+
+  "expected_fields": [
+    "Permitted_Use_Description",
+    "Tenant_Insurance",
+    "Landlord_Repair_Obligations",
+    "Tenant_Repair_Obligations",
+    "OPEX_Inclusion",
+    "Assignment_3rd_Parties",
+    "Assignment_Affiliates",
+    "Holdover_Rent",
+    "Date_Commencment",
+    "Lease_Term"
+  ],
+
+  "retry_hints": {
+    "Permitted_Use_Description": "Look for 'Use of Premises' or 'Tenant shall use' - may be in a definitions section formatted as '(d) Use of Premises:'",
+    "Tenant_Insurance": "Look for 'INSURANCE' section header, 'Tenant will carry and maintain', or 'General Requirements' near insurance language",
+    "Landlord_Repair_Obligations": "Look for 'Landlord shall make repairs' or 'Landlord will at its own cost make repairs'",
+    "Tenant_Repair_Obligations": "Look for 'Tenant shall maintain the interior' or 'Tenant will not injure the Premises'",
+    "OPEX_Inclusion": "Look for 'Operating Expenses shall include' - often starts with lettered list a) b) c)",
+    "Assignment_3rd_Parties": "Look for 'Tenant shall not assign' or 'without prior written consent of Landlord'",
+    "Assignment_Affiliates": "Look for 'Permitted Transfer' or 'Tenant may without consent assign to parent, affiliate, subsidiary'",
+    "Holdover_Rent": "Look for 'Holdover' or 'holding over' with a rent percentage (150%, 200%, double)",
+    "Date_Commencment": "Look for 'Commencement Date' definition - often in definitions section with conditions A) B) C)",
+    "Lease_Term": "Look for 'Term' definition with number of months"
+  },
+
+  "sections": [
+    {
+      "title": "Summary Info",
+      "fields": [
+        ["Lease_Summary_Preparer", "Prepared By"],
+        ["Lease_Summary_Date", "Date"],
+        ["Lease_Summary_Purpose", "Purpose"]
+      ]
+    },
+    {
+      "title": "Property & Owner",
+      "fields": [
+        ["Property_Name", "Property Name"],
+        ["Property_Address_1", "Address Line 1"],
+        ["Property_Address_2", "Address Line 2"],
+        ["Property_Address_City", "City"],
+        ["Property_Address_State", "State"],
+        ["Property_Address_Zip", "Zip"],
+        ["Owner_Name", "Owner Name"],
+        ["Owner_StReg", "Owner State of Registration"],
+        ["Owner_Type", "Owner Entity Type"]
+      ]
+    },
+    {
+      "title": "Tenant",
+      "fields": [
+        ["Tenant_Name", "Tenant Name"],
+        ["Tenant_StReg", "Tenant State of Registration"],
+        ["Tenant_Type", "Tenant Entity Type"],
+        ["Tenant_DBA", "DBA"],
+        ["Tenant_Address_1", "Address Line 1"],
+        ["Tenant_Address_2", "Address Line 2"],
+        ["Tenant_Address_City", "City"],
+        ["Tenant_Address_State", "State"],
+        ["Tenant_Address_Zip", "Zip"],
+        ["Tenant_Attn", "Attention"],
+        ["Tenant_Email", "Email"]
+      ]
+    },
+    {
+      "title": "Tenant Notice Copy To",
+      "fields": [
+        ["Tenant_CopyTo_Address_1", "Address Line 1"],
+        ["Tenant_CopyTo_Address_2", "Address Line 2"],
+        ["Tenant_CopyTo_Address_City", "City"],
+        ["Tenant_CopyTo_Address_State", "State"],
+        ["Tenant_CopyTo_Address_Zip", "Zip"],
+        ["Tenant_CopyTo_Attn", "Attention"],
+        ["Tenant_CopyTo_Email", "Email"]
+      ]
+    },
+    {
+      "title": "Premises & Lease Term",
+      "fields": [
+        ["Premises_UnitNumber_Description", "Suite/Unit Number"],
+        ["Premises_SqFt", "Square Footage"],
+        ["LeaseAgr_Name", "Lease Agreement Name"],
+        ["LeaseAgr_Amendments", "Amendments"],
+        ["Date_Lease", "Lease Effective Date"],
+        ["Date_Commencment", "Commencement Date"],
+        ["Lease_Term", "Lease Term"],
+        ["Date_Expiration", "Expiration Date"],
+        ["Date_EarlyAccess", "Early Access"],
+        ["Renewal_Option_Numbers", "Renewal Options"],
+        ["Renewal_Option_Period_PerOption", "Period Per Option"]
+      ]
+    },
+    {
+      "title": "Base Rent",
+      "fields": [
+        ["Amt_Security_Deposit", "Security Deposit"],
+        ["Rent_BaseRent_PSF", "Rent Per Sq. Ft."],
+        ["Rent_BaseRent_Amt", "Annual Rent"],
+        ["Rent_BaseRent_Monthly", "Monthly Rent"],
+        ["Rent_AnnualIncrease_Percentage", "Annual Increase"],
+        ["Base_Year", "Base Year"]
+      ]
+    },
+    {
+      "title": "Rent Abatement",
+      "fields": [
+        ["Rent_Abatement_Commencement", "Abatement Commencement"],
+        ["Rent_Abatement_Expiration", "Abatement Expiration"],
+        ["Rent_Abatement_Duration", "Abatement Duration"],
+        ["Rent_Abatement_Base_Rent", "Base Rent Abated"],
+        ["Rent_Abatement_Additional_Rent", "Additional Rent Abated"],
+        ["Rent_Abatement_Qualifier", "Abatement Qualifier"]
+      ]
+    },
+    {
+      "title": "Additional Rent & Allowances",
+      "fields": [
+        ["Tenant_Share_Percentage", "Tenant's Percentage Share"],
+        ["Rent_PercentageRent_ThresholdAmt", "Percentage Rent Threshold"],
+        ["Rent_PercentageRent_Percent", "Percentage Rent Rate"],
+        ["Tenant_Allowance_PSF", "TI Allowance Per Sq. Ft."],
+        ["Tenant_Allowance_Total", "TI Allowance Total"]
+      ]
+    },
+    {
+      "title": "Use, Parking & Guarantor",
+      "fields": [
+        ["Permitted_Use_Description", "Permitted Use"],
+        ["Parking_Reserved_Spaces", "Reserved Parking"],
+        ["Parking_Unreserved_Spaces", "Unreserved Parking"],
+        ["Parking_Reserved_Amt_Fees", "Reserved Parking Fees"],
+        ["Parking_Unreserved_Amt_Fees", "Unreserved Parking Fees"],
+        ["Guarantor_Name", "Guarantor Name"],
+        ["Guarantor_StReg", "Guarantor State"],
+        ["Guarantor_Type", "Guarantor Type"],
+        ["Guaranty_Term", "Guaranty Term"]
+      ]
+    },
+    {
+      "title": "Broker & Improvements",
+      "fields": [
+        ["Broker_Landlord_Name", "Landlord's Broker"],
+        ["Broker_Tenant_Name", "Tenant's Broker"],
+        ["Tenant_Improvements_Description", "Landlord's Work / TI"]
+      ]
+    },
+    {
+      "title": "Options & Rights",
+      "fields": [
+        ["ROFR_Space", "ROFR Space"],
+        ["ROFR_Description", "ROFR Description"],
+        ["ROFO_Space", "ROFO Space"],
+        ["ROFO_Description", "ROFO Description"],
+        ["Expansion_Space", "Expansion Space"],
+        ["Expansion_Description", "Expansion Description"],
+        ["Early_Termination_Description", "Early Termination"],
+        ["Reduction_Description", "Reduction Option"],
+        ["Purchase_Option_Space", "Purchase Option Space"],
+        ["Purchase_Option_Description", "Purchase Option Description"]
+      ]
+    },
+    {
+      "title": "OPEX Items",
+      "fields": [
+        ["OPEX_Inclusion", "OPEX Inclusions"],
+        ["OPEX_Exclusion", "OPEX Exclusions"],
+        ["Utilities", "Utilities"],
+        ["Fees_Management", "Admin/Management Fees"],
+        ["Gross_Up_Percent_Language", "Gross Up %"]
+      ]
+    },
+    {
+      "title": "Insurance & Maintenance",
+      "fields": [
+        ["Tenant_Insurance", "Tenant Insurance"],
+        ["Landlord_Repair_Obligations", "Landlord Repair Obligations"],
+        ["Tenant_Repair_Obligations", "Tenant Repair Obligations"]
+      ]
+    },
+    {
+      "title": "Assignment & Sublease",
+      "fields": [
+        ["Assignment_3rd_Parties", "Assignment - 3rd Parties"],
+        ["Assignment_Affiliates", "Assignment - Affiliates"],
+        ["Assignment_LL_Decision", "Landlord Decision"],
+        ["Assignment_Rent_Profit", "Rent Profits"],
+        ["Assignment_Recapture_Space", "Recapture of Space"],
+        ["Assignment_Process_Fee", "Processing Fee"],
+        ["Assignment_Change_Control", "Change of Control"],
+        ["Assignment_Other_Terms", "Other Terms"],
+        ["Sublease_Terms", "Sublease"]
+      ]
+    },
+    {
+      "title": "Holdover & Estoppel",
+      "fields": [
+        ["Holdover_Rent", "Holdover Rent"],
+        ["Estoppel_Return_Period", "Estoppel Return Period"],
+        ["Estoppel_Details", "Estoppel Details"]
+      ]
+    },
+    {
+      "title": "SNDA",
+      "fields": [
+        ["SNDA_Subject_Existing_Mortgages", "Subject to Existing Mortgages"],
+        ["SNDA_Subject_Future_Mortgages", "Subject to Future Mortgages"],
+        ["SNDA_Subject_Existing_GroundLease", "Subject to Existing Ground Lease"],
+        ["SNDA_Subject_Future_GroundLease", "Subject to Future Ground Leases"],
+        ["SNDA_Required_by_Lender_Provision", "Requested by Lender"]
+      ]
+    },
+    {
+      "title": "Relocation",
+      "fields": [
+        ["Relocation_Rights", "Relocation Allowed"],
+        ["Relocation_Notice_Period", "Notice Period"],
+        ["Relocation_Language", "Language"],
+        ["Relocation_Cost", "Relocation Costs"],
+        ["Relocation_Termination_Rights", "Termination Rights"]
+      ]
+    },
+    {
+      "title": "Signage",
+      "fields": [
+        ["Signage_Allowed", "Signage Allowed"],
+        ["Signage_Location", "Location"],
+        ["Signage_Approval_Required", "Approval Required"],
+        ["Signage_Type", "Type"],
+        ["Signage_Renovation_Replacement", "Renovation/Replacement"],
+        ["Signage_Removal", "Removal"]
+      ]
+    },
+    {
+      "title": "Other",
+      "fields": [
+        ["Other_Rights", "Other Rights"]
+      ]
+    }
+  ]
+}

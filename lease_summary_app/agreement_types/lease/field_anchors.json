@@ -1,0 +1,138 @@
+{
+  "_comment": "Keyword anchor patterns for lease field extraction. Each field maps to a list of regex patterns used to locate the correct clause in the source text. Patterns are tried in order - first match wins. Edit this file to add new patterns without touching code.",
+  "Permitted_Use_Description": [
+    "use of premises.*medical",
+    "use of premises.*office",
+    "use of premises.*dental",
+    "use of premises.*surgical",
+    "tenant shall use the",
+    "premises shall be used",
+    "for the sole purpose of",
+    "permitted use.*shall be",
+    "use.*premises.*limited to"
+  ],
+  "Tenant_Insurance": [
+    "insurance.*at all times during the term.*tenant will carry",
+    "tenant will carry and maintain.*insurance",
+    "tenant shall.*carry and maintain.*insurance",
+    "tenant shall maintain.*insurance",
+    "insurance.*tenant shall obtain",
+    "general requirements.*tenant shall not conduct",
+    "insurance.*general requirements"
+  ],
+  "Landlord_Repair_Obligations": [
+    "landlord shall.*make.*structural repairs",
+    "landlord will.*make.*repairs",
+    "landlord.*at its.*cost.*make.*repairs",
+    "landlord shall.*repair and maintain",
+    "landlord.*responsible for.*structural"
+  ],
+  "Tenant_Repair_Obligations": [
+    "tenant shall.*maintain the interior",
+    "tenant.*good care of the.*premises",
+    "tenant shall take good care",
+    "tenant will.*maintain the premises",
+    "tenant.*responsible for.*maintenance.*interior"
+  ],
+  "Utilities": [
+    "utility costs.*shall include",
+    "tenant agrees to contract.*utility",
+    "tenant.*pay.*utility charges",
+    "tenant shall be responsible for.*utilities",
+    "utilities.*tenant shall pay"
+  ],
+  "Holdover_Rent": [
+    "holdover.*tenant.*rent shall",
+    "holding over.*shall result",
+    "hold over.*rent.*percent",
+    "holdover.*tenancy at will",
+    "holdover.*150%",
+    "holdover.*200%",
+    "holdover.*double"
+  ],
+  "OPEX_Inclusion": [
+    "operating expenses.*shall include.*but not be limited to",
+    "operating expenses.*shall include",
+    "operating expenses.*mean.*all costs",
+    "opex.*shall include"
+  ],
+  "OPEX_Exclusion": [
+    "operating expenses.*shall not include",
+    "opex.*shall not include",
+    "excluded from operating expenses",
+    "not.*included in.*operating expenses"
+  ],
+  "Assignment_3rd_Parties": [
+    "tenant shall not assign.*without.*prior.*consent",
+    "tenant shall neither sublet.*nor assign",
+    "assignment.*without.*prior written consent",
+    "except for a permitted transfer.*tenant shall not assign"
+  ],
+  "Assignment_Affiliates": [
+    "notwithstanding.*permitted transfer",
+    "tenant may.*without.*prior consent.*assign",
+    "tenant may.*without.*consent.*landlord.*assign",
+    "permitted party.*parent.*affiliate.*subsidiary",
+    "without.*advance consent.*assign.*sublease"
+  ],
+  "Assignment_LL_Decision": [
+    "landlord shall not.*unreasonably.*withheld.*consent",
+    "landlord.*not.*deemed.*unreasonably withheld",
+    "consent.*not.*unreasonably withheld"
+  ],
+  "Assignment_Rent_Profit": [
+    "if landlord permits.*assignment.*monies",
+    "excess.*rent.*assignment.*shall be",
+    "profit.*assignment.*subletting"
+  ],
+  "Assignment_Recapture_Space": [
+    "landlord shall have.*option.*terminating",
+    "landlord.*option.*terminate.*rather than.*assignment",
+    "recapture.*landlord.*terminate"
+  ],
+  "Sublease_Terms": [
+    "tenant shall not.*sublet",
+    "subletting.*without.*consent",
+    "sublease.*prior.*written.*consent"
+  ],
+  "Early_Termination_Description": [
+    "either.*landlord.*or.*tenant.*may.*terminate",
+    "tenant.*right to terminate",
+    "early termination.*option",
+    "termination.*option.*upon"
+  ],
+  "Signage_Location": [
+    "tenant.*permitted.*sign",
+    "tenant.*shall.*entitled.*sign",
+    "signage.*tenant.*one.*sign",
+    "sign.*exterior.*premises",
+    "one.*exterior building sign"
+  ],
+  "Gross_Up_Percent_Language": [
+    "controllable.*opex.*shall not exceed",
+    "controllable.*expenses.*cap",
+    "gross up.*percent",
+    "occupancy.*less than.*percent.*operating expenses"
+  ],
+  "Estoppel_Details": [
+    "tenant agrees.*within.*days.*written.*statement.*certifying",
+    "estoppel.*certifying.*lease.*unmodified",
+    "certifying.*lease.*in full force"
+  ],
+  "Date_Commencment": [
+    "commencement date.*the earlier to occur",
+    "commencement date.*shall.*mean",
+    "commencement date.*shall be",
+    "rent.*commence.*earlier.*occur"
+  ],
+  "Date_EarlyAccess": [
+    "early.*possession.*premises.*prior to.*commencement",
+    "tenant.*right to enter.*premises.*prior",
+    "early access.*tenant.*shall"
+  ],
+  "Guaranty_Term": [
+    "guaranty.*shall.*remain.*in.*effect",
+    "guarantor.*liable.*entire.*term",
+    "guarantee.*term.*lease"
+  ]
+}
