@@ -48,7 +48,31 @@ from multi_file import (
     DocumentInfo, FieldHistory,
 )
 
+# Error types
+from errors import ProcessingError
+from lease_summary_tool import DocumentIngestError
+
+# Structured logging
+from app_logging import (
+    get_logger, log_code, log_info, log_error, INGEST_KIND_TO_CODE,
+)
+
+
+def _friendly_error(e: Exception) -> str:
+    """Extract a user-friendly message from an exception."""
+    if isinstance(e, (ProcessingError, DocumentIngestError)):
+        return e.message
+    # Generic fallback — keep it clean
+    msg = str(e)
+    if not msg or len(msg) > 300:
+        return "An unexpected error occurred while processing this document."
+    return msg
+
 app = FastAPI(title="SeedJura Agreement Summary")
+
+# Initialize logging
+get_logger()
+log_info("Application starting up")
 
 # Discover available agreement types on startup
 discover_types()
@@ -83,7 +107,13 @@ def _save_settings(settings: dict):
 
 
 def _win_to_wsl(win_path: str) -> str:
-    """Convert Windows path (C:\\foo\\bar) to WSL path (/mnt/c/foo/bar)."""
+    """Convert Windows path (C:\\foo\\bar) to WSL path (/mnt/c/foo/bar).
+    On native Windows, returns the path as-is (no conversion needed)."""
+    import platform
+    # If running on native Windows, no conversion needed
+    if platform.system() == "Windows":
+        return win_path.replace("/", "\\") if "/" in win_path else win_path
+
     path = win_path.replace("\\", "/")
     # Handle C:/ or C:
     if len(path) >= 2 and path[1] == ":":
@@ -97,7 +127,13 @@ def _win_to_wsl(win_path: str) -> str:
 
 
 def _wsl_to_win(wsl_path: str) -> str:
-    """Convert WSL path (/mnt/c/foo/bar) to Windows path (C:\\foo\\bar)."""
+    """Convert WSL path (/mnt/c/foo/bar) to Windows path (C:\\foo\\bar).
+    On native Windows, returns the path as-is."""
+    import platform
+    # If running on native Windows, just normalize slashes
+    if platform.system() == "Windows":
+        return wsl_path.replace("/", "\\") if "/" in wsl_path else wsl_path
+
     if wsl_path.startswith("/mnt/") and len(wsl_path) >= 6:
         drive = wsl_path[5].upper()
         rest = wsl_path[6:] if len(wsl_path) > 6 else ""
@@ -140,7 +176,7 @@ async def update_settings(
 @app.get("/api/browse-folders")
 def browse_folders(path: str = "C:\\"):
     """List subdirectories at a given path for the folder browser. Accepts Windows paths."""
-    # Convert to WSL path for filesystem access
+    # Convert to WSL path for filesystem access (no-op on native Windows)
     wsl_path = _win_to_wsl(path)
 
     if not os.path.isdir(wsl_path):
@@ -154,14 +190,20 @@ def browse_folders(path: str = "C:\\"):
     except PermissionError:
         pass
 
-    # Convert current and parent back to Windows paths
-    win_current = _wsl_to_win(wsl_path)
-    wsl_parent = os.path.dirname(wsl_path)
-    # Don't go above drive root
-    if wsl_parent and wsl_parent != wsl_path and len(wsl_path) > 6:
-        win_parent = _wsl_to_win(wsl_parent)
+    import platform
+    if platform.system() == "Windows":
+        # On native Windows, return Windows paths directly
+        win_current = wsl_path
+        parent = os.path.dirname(wsl_path)
+        win_parent = parent if parent != wsl_path else None
     else:
-        win_parent = None
+        # On WSL, convert back to Windows display paths
+        win_current = _wsl_to_win(wsl_path)
+        wsl_parent = os.path.dirname(wsl_path)
+        if wsl_parent and wsl_parent != wsl_path and len(wsl_path) > 6:
+            win_parent = _wsl_to_win(wsl_parent)
+        else:
+            win_parent = None
 
     return {
         "current": win_current,
@@ -196,6 +238,8 @@ async def upload_agreement(
     job_id = str(uuid.uuid4())[:8]
     job_dir = os.path.join(WORK_DIR, job_id)
     os.makedirs(job_dir, exist_ok=True)
+
+    log_code("I100", extra=f"single-file: {file.filename}", job_id=job_id)
 
     # Save uploaded file
     input_path = os.path.join(job_dir, file.filename)
@@ -412,14 +456,38 @@ async def upload_agreement(
         job_meta["status"] = "complete"
         _save_meta(job_dir, job_meta)
 
-    except Exception as e:
+    except (ProcessingError, DocumentIngestError) as e:
+        # Known, user-friendly error
+        friendly = _friendly_error(e)
+        kind = getattr(e, "kind", "general")
+        code = INGEST_KIND_TO_CODE.get(kind, "E100") if isinstance(e, DocumentIngestError) else "E205"
+        log_code(code, extra=f"{file.filename} | {getattr(e, 'detail', '') or friendly}", job_id=job_id)
         job_meta["status"] = "error"
-        job_meta["error"] = str(e)
+        job_meta["error"] = friendly
+        job_meta["error_code"] = code
+        job_meta["error_kind"] = kind
         _save_meta(job_dir, job_meta)
         return JSONResponse(
-            status_code=500,
-            content={"job_id": job_id, "status": "error", "error": str(e)},
+            status_code=200,  # 200 so the frontend parses JSON cleanly
+            content={"job_id": job_id, "status": "error", "error": friendly, "error_code": code},
         )
+    except Exception as e:
+        # Unexpected error — log full trace, return clean message
+        import traceback
+        traceback.print_exc()
+        friendly = _friendly_error(e)
+        log_error(f"Unexpected error processing {file.filename}", job_id=job_id, exc=e)
+        get_logger().error(traceback.format_exc())
+        job_meta["status"] = "error"
+        job_meta["error"] = friendly
+        job_meta["error_code"] = "E999"
+        _save_meta(job_dir, job_meta)
+        return JSONResponse(
+            status_code=200,
+            content={"job_id": job_id, "status": "error", "error": friendly, "error_code": "E999"},
+        )
+
+    log_code("I101", extra=f"{file.filename} | {filled_count}/{len(agr.fields)} fields", job_id=job_id)
 
     return {
         "job_id": job_id,
@@ -477,6 +545,8 @@ async def upload_folder(
     }
     _save_meta(job_dir, job_meta)
 
+    log_code("I103", extra=f"{folder_path} ({len(files)} files)", job_id=job_id)
+
     try:
         # Resolve agreement type
         if agreement_type == "auto":
@@ -494,10 +564,28 @@ async def upload_folder(
         _save_meta(job_dir, job_meta)
 
         doc_infos: List[DocumentInfo] = []
+        skipped_files = []  # Track files that failed, so we continue with the rest
         for filepath in files:
             filename = os.path.basename(filepath)
             print(f"\n  Ingesting: {filename}")
-            raw_text = ingest_document(filepath)
+            try:
+                raw_text = ingest_document(filepath)
+            except (DocumentIngestError, ProcessingError) as e:
+                # Skip this file but continue with the rest
+                reason = _friendly_error(e)
+                kind = getattr(e, "kind", "general")
+                code = INGEST_KIND_TO_CODE.get(kind, "E100") if isinstance(e, DocumentIngestError) else "E100"
+                log_code("W100", extra=f"{filename} [{code}]: {reason}", job_id=job_id)
+                print(f"    SKIPPED: {reason}")
+                skipped_files.append({"filename": filename, "reason": reason, "code": code})
+                continue
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                log_error(f"Unexpected error ingesting {filename} (skipped)", job_id=job_id, exc=e)
+                print(f"    SKIPPED (unexpected): {e}")
+                skipped_files.append({"filename": filename, "reason": _friendly_error(e), "code": "E999"})
+                continue
 
             doc_type, amend_num = classify_document(filename, raw_text)
             doc_info = DocumentInfo(
@@ -511,7 +599,15 @@ async def upload_folder(
             doc_infos.append(doc_info)
             print(f"    Type: {doc_type}, Amendment #: {amend_num}, Chars: {len(raw_text):,}")
 
-        job_meta["phases"]["ingest"] = f"done ({len(doc_infos)} files)"
+        if not doc_infos:
+            # Every file failed
+            reasons = "; ".join(f"{s['filename']}: {s['reason']}" for s in skipped_files[:5])
+            raise ProcessingError(
+                f"None of the {len(files)} files could be processed. {reasons}"
+            )
+
+        job_meta["phases"]["ingest"] = f"done ({len(doc_infos)} files, {len(skipped_files)} skipped)"
+        job_meta["skipped_files"] = skipped_files
         _save_meta(job_dir, job_meta)
 
         # Phase 2: PII scan (aggregate)
@@ -519,8 +615,11 @@ async def upload_folder(
         _save_meta(job_dir, job_meta)
         total_pii = 0
         for doc_info in doc_infos:
-            _, pii_findings = redact_and_capture_pii(doc_info.text)
-            total_pii += len(pii_findings)
+            try:
+                _, pii_findings = redact_and_capture_pii(doc_info.text)
+                total_pii += len(pii_findings)
+            except Exception:
+                pass  # PII scan is non-critical
         job_meta["phases"]["pii"] = f"done ({total_pii} items across all docs)"
         _save_meta(job_dir, job_meta)
 
@@ -535,10 +634,18 @@ async def upload_folder(
             # Build document-specific prompt prefix
             prompt_prefix = build_multi_file_prompt_prefix(doc_info)
 
-            # Use the engine's analyze function
-            field_data, anchors, dates = analyze_with_ai(
-                agr, doc_info.text, sub_type=doc_info.doc_type
-            )
+            # Use the engine's analyze function — isolate per-file AI failures
+            try:
+                field_data, anchors, dates = analyze_with_ai(
+                    agr, doc_info.text, sub_type=doc_info.doc_type
+                )
+            except (ProcessingError,) as e:
+                # AI service errors (auth/quota) are fatal — re-raise
+                raise
+            except Exception as e:
+                log_code("W101", extra=f"{doc_info.filename}: {e}", job_id=job_id)
+                print(f"    AI extraction failed for this doc: {e}")
+                field_data, anchors, dates = {}, {}, {}
 
             doc_info.field_data = field_data
             doc_info.normalized_dates = dates
@@ -684,13 +791,21 @@ async def upload_folder(
     except Exception as e:
         import traceback
         traceback.print_exc()
+        friendly = _friendly_error(e)
+        code = "E205" if isinstance(e, ProcessingError) else "E999"
+        log_error(f"Multi-file job failed: {friendly}", job_id=job_id, exc=e)
+        get_logger().error(traceback.format_exc())
         job_meta["status"] = "error"
-        job_meta["error"] = str(e)
+        job_meta["error"] = friendly
+        job_meta["error_code"] = code
         _save_meta(job_dir, job_meta)
         return JSONResponse(
-            status_code=500,
-            content={"job_id": job_id, "status": "error", "error": str(e)},
+            status_code=200,
+            content={"job_id": job_id, "status": "error", "error": friendly, "error_code": code},
         )
+
+    log_code("I101", extra=f"multi-file {folder_name} | {len(doc_infos)} docs, "
+             f"{len(skipped_files)} skipped, {fields_with_history} fields w/ history", job_id=job_id)
 
     return {
         "job_id": job_id,
@@ -707,6 +822,7 @@ async def upload_folder(
         "saved_to_folder": output_folder,
         "saved_files": saved_files,
         "documents": job_meta["documents"],
+        "skipped_files": job_meta.get("skipped_files", []),
     }
 
 

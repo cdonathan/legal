@@ -34,6 +34,23 @@ OUTPUT FILES (per document)
 - {name}_GlobalFormVars.xml     - Structured data in XML format
 - {name}_data.json              - Full extraction data + audit trail
 
+SCANNED PDFs (OCR)
+------------------
+Some leases are scanned images rather than digital text. These require
+OCR (Optical Character Recognition) to read.
+
+- Digital (text-based) PDFs work out of the box - no setup needed.
+- Scanned PDFs require Tesseract OCR to be installed.
+
+To enable scanned-PDF support, run:  INSTALL_OCR.bat
+
+When SeedJura starts, it tells you whether OCR is available:
+  [OK] OCR available          -> scanned PDFs will work
+  [!]  OCR NOT available      -> only digital PDFs will work
+
+If OCR is not installed and you upload a scanned PDF, you'll get a clear
+message rather than a crash.
+
 NOTES
 -----
 - Keep the console window open while using the app
@@ -41,6 +58,8 @@ NOTES
 - The output folder setting is remembered between sessions
 - Scanned PDFs take 2-3 minutes (OCR processing)
 - Digital PDFs take ~30 seconds
+- In Multi-File mode, if one document fails, the rest still process
+  (skipped files are listed in the results)
 
 BUILDING FROM SOURCE
 --------------------

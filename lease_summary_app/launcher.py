@@ -57,6 +57,9 @@ def main():
     # Auto-deploy template and API key to C:\seedJura\ on first run
     _setup_files()
 
+    # Check dependencies and warn the user
+    _check_dependencies()
+
     port = find_free_port()
     print(f"  Starting server on port {port}...")
     print(f"  Press Ctrl+C to stop.")
@@ -75,6 +78,37 @@ def main():
         log_level="info",
         reload=False,
     )
+
+
+def _check_dependencies():
+    """Check for optional dependencies and warn if missing."""
+    # Check OCR availability (needed for scanned PDFs)
+    try:
+        from lease_summary_tool import is_ocr_available
+        if is_ocr_available():
+            print("  [OK] OCR available (scanned PDFs supported)")
+        else:
+            print("  [!] OCR NOT available - scanned PDFs cannot be processed.")
+            print("      Digital (text-based) PDFs will still work fine.")
+            print("      To enable OCR, install Tesseract or use the bundled version.")
+    except Exception:
+        pass
+
+    # Check API key
+    try:
+        from lease_summary_tool import API_KEY_FILE
+        import os as _os
+        has_key = (_os.path.exists(API_KEY_FILE) or
+                   _os.environ.get("OPENAI_API_KEY"))
+        if has_key:
+            print("  [OK] OpenAI API key found")
+        else:
+            print("  [!] No OpenAI API key found.")
+            print(f"      Place your key in: {API_KEY_FILE}")
+    except Exception:
+        pass
+
+    print()
 
 
 def _setup_files():

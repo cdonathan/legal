@@ -35,6 +35,15 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from redactor import ContractRedactor
 
 
+def _log(code: str, message: str):
+    """Lightweight logging hook — routes to the app logger if available."""
+    try:
+        import logging
+        logging.getLogger("seedjura").info(f"[{code}] {message}")
+    except Exception:
+        pass
+
+
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
@@ -99,19 +108,71 @@ AI_MODEL = "gpt-4o"
 # PHASE 1: DOCUMENT INGESTION
 # =============================================================================
 
+class DocumentIngestError(Exception):
+    """Raised when a document cannot be ingested. Carries a user-friendly message."""
+    def __init__(self, message: str, kind: str = "general", detail: str = ""):
+        self.message = message
+        self.kind = kind  # unsupported, encrypted, corrupt, ocr_unavailable, empty
+        self.detail = detail
+        super().__init__(message)
+
+
 def ingest_document(file_path: str) -> str:
-    """Extract text from PDF or DOCX lease document."""
+    """
+    Extract text from PDF or DOCX lease document.
+    Raises DocumentIngestError with a user-friendly message on any failure.
+    """
+    if not os.path.exists(file_path):
+        raise DocumentIngestError(
+            f"File not found: {os.path.basename(file_path)}",
+            kind="corrupt",
+        )
+
+    # Check the file isn't empty
+    try:
+        if os.path.getsize(file_path) == 0:
+            raise DocumentIngestError(
+                f"File is empty: {os.path.basename(file_path)}",
+                kind="empty",
+            )
+    except OSError:
+        pass
+
     ext = Path(file_path).suffix.lower()
 
     if ext == ".pdf":
         text = _extract_pdf(file_path)
-    elif ext in (".docx", ".doc"):
+    elif ext == ".docx":
         text = _extract_docx(file_path)
+    elif ext == ".doc":
+        # Legacy binary .doc is NOT supported by python-docx
+        raise DocumentIngestError(
+            "Legacy .doc files (Word 97-2003) are not supported. "
+            "Please save the file as .docx or PDF and try again.",
+            kind="unsupported",
+        )
     elif ext in (".txt", ".md"):
-        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-            text = f.read()
+        try:
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                text = f.read()
+        except OSError as e:
+            raise DocumentIngestError(
+                f"Could not read text file: {os.path.basename(file_path)}",
+                kind="corrupt", detail=str(e),
+            )
     else:
-        raise ValueError(f"Unsupported file type: {ext}. Use PDF, DOCX, or TXT.")
+        raise DocumentIngestError(
+            f"Unsupported file type: {ext}. Use PDF, DOCX, or TXT.",
+            kind="unsupported",
+        )
+
+    # Check we actually got usable content
+    if not text or len(text.strip()) < 20:
+        raise DocumentIngestError(
+            f"No readable text found in {os.path.basename(file_path)}. "
+            "The document may be blank, an unsupported image format, or corrupt.",
+            kind="empty",
+        )
 
     # Post-OCR corrections for common handwriting misreads
     text = _fix_handwritten_dates(text)
@@ -212,21 +273,99 @@ def _fix_handwritten_dates(text: str) -> str:
 
 def _extract_pdf(file_path: str) -> str:
     """Extract text from PDF using PyMuPDF. Falls back to OCR for scanned docs."""
-    doc = pymupdf.open(file_path)
+    try:
+        doc = pymupdf.open(file_path)
+    except Exception as e:
+        raise DocumentIngestError(
+            f"Could not open PDF: {os.path.basename(file_path)}. "
+            "The file may be corrupt or not a valid PDF.",
+            kind="corrupt", detail=str(e),
+        )
+
+    # Handle encrypted/password-protected PDFs
+    if doc.needs_pass:
+        # Try empty password (some PDFs are encrypted but openable)
+        if not doc.authenticate(""):
+            doc.close()
+            raise DocumentIngestError(
+                f"PDF is password-protected: {os.path.basename(file_path)}. "
+                "Please remove the password and try again.",
+                kind="encrypted",
+            )
+
     text_parts = []
-    for page_num in range(len(doc)):
-        page = doc[page_num]
-        text_parts.append(page.get_text())
+    try:
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            text_parts.append(page.get_text())
+    except Exception as e:
+        doc.close()
+        raise DocumentIngestError(
+            f"Error reading PDF pages in {os.path.basename(file_path)}. "
+            "The file may be partially corrupt.",
+            kind="corrupt", detail=str(e),
+        )
+
+    page_count = len(doc)
     doc.close()
 
     combined = "\n".join(text_parts)
 
     # If very little text extracted, the PDF is likely scanned - use OCR
-    if len(combined.strip()) < 200:
+    # Use a per-page heuristic: less than ~50 chars/page average = scanned
+    avg_chars = len(combined.strip()) / max(page_count, 1)
+    if len(combined.strip()) < 200 or avg_chars < 50:
         print("  PDF appears to be scanned/image-based. Running OCR...")
-        combined = _ocr_pdf(file_path)
+        _log("I104", f"OCR started: {os.path.basename(file_path)} ({page_count} pages)")
+        ocr_text = _ocr_pdf(file_path)
+        # Use OCR result if it produced more text than direct extraction
+        if len(ocr_text.strip()) > len(combined.strip()):
+            combined = ocr_text
 
     return combined
+
+
+def _find_tesseract() -> str:
+    """
+    Locate the Tesseract executable. Checks PATH, common install locations,
+    and a bundled copy next to the app. Returns the path or "" if not found.
+    """
+    import shutil as _shutil
+
+    # 1. Already on PATH
+    found = _shutil.which("tesseract")
+    if found:
+        return found
+
+    # 2. Common Windows install locations
+    candidates = [
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+        r"C:\seedJura\Tesseract-OCR\tesseract.exe",
+    ]
+    # 3. Bundled copy next to the app / exe
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates.append(os.path.join(app_dir, "Tesseract-OCR", "tesseract.exe"))
+    candidates.append(os.path.join(app_dir, "lease_summary_app", "Tesseract-OCR", "tesseract.exe"))
+    # PyInstaller bundle location
+    if getattr(sys, "frozen", False):
+        candidates.append(os.path.join(sys._MEIPASS, "Tesseract-OCR", "tesseract.exe"))
+
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+
+    return ""
+
+
+def is_ocr_available() -> bool:
+    """Check whether OCR (Tesseract + pytesseract) is available."""
+    try:
+        import pytesseract  # noqa
+        from PIL import Image  # noqa
+    except ImportError:
+        return False
+    return bool(_find_tesseract())
 
 
 def _ocr_pdf(file_path: str) -> str:
@@ -236,11 +375,23 @@ def _ocr_pdf(file_path: str) -> str:
         from PIL import Image
         import io
     except ImportError:
-        raise RuntimeError(
-            "OCR requires pytesseract and Pillow. "
-            "Install with: pip install pytesseract Pillow\n"
-            "Also install Tesseract: sudo apt-get install tesseract-ocr"
+        raise DocumentIngestError(
+            "This is a scanned PDF that requires OCR, but the OCR libraries "
+            "(pytesseract, Pillow) are not installed. Please provide a digital "
+            "(text-based) PDF, or install OCR support.",
+            kind="ocr_unavailable",
         )
+
+    # Locate Tesseract binary
+    tess_path = _find_tesseract()
+    if not tess_path:
+        raise DocumentIngestError(
+            "This is a scanned PDF that requires OCR, but Tesseract is not "
+            "installed on this machine. Please provide a digital (text-based) "
+            "PDF, or install Tesseract OCR.",
+            kind="ocr_unavailable",
+        )
+    pytesseract.pytesseract.tesseract_cmd = tess_path
 
     doc = pymupdf.open(file_path)
     text_parts = []
@@ -301,7 +452,28 @@ def _ocr_with_preprocessing(image) -> str:
 
 def _extract_docx(file_path: str) -> str:
     """Extract text from DOCX."""
-    doc = Document(file_path)
+    try:
+        doc = Document(file_path)
+    except Exception as e:
+        msg = str(e).lower()
+        if "encrypted" in msg or "password" in msg:
+            raise DocumentIngestError(
+                f"DOCX is password-protected: {os.path.basename(file_path)}. "
+                "Please remove the password and try again.",
+                kind="encrypted", detail=str(e),
+            )
+        if "not a zip" in msg or "bad" in msg or "file is not" in msg:
+            raise DocumentIngestError(
+                f"Could not open {os.path.basename(file_path)}. It may be a "
+                "legacy .doc file, corrupt, or not a valid Word document. "
+                "Try saving it as .docx or PDF.",
+                kind="corrupt", detail=str(e),
+            )
+        raise DocumentIngestError(
+            f"Could not read Word document: {os.path.basename(file_path)}.",
+            kind="corrupt", detail=str(e),
+        )
+
     paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
     # Also extract table content
     for table in doc.tables:

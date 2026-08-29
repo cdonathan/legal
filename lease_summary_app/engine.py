@@ -165,6 +165,66 @@ def _attempt_json_recovery(raw: str) -> dict:
     return {}
 
 
+def _make_ai_error(message: str, detail: str = ""):
+    """Create an AIServiceError, importing lazily to avoid circular deps."""
+    try:
+        from errors import AIServiceError
+        return AIServiceError(message, detail)
+    except ImportError:
+        return RuntimeError(message)
+
+
+def _call_openai_with_retry(client, messages, max_tokens, max_retries=3):
+    """
+    Call the OpenAI chat API with retry logic for transient failures.
+    Raises AIServiceError with a user-friendly message on permanent failure.
+    """
+    import time
+
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            return client.chat.completions.create(
+                model=AI_MODEL,
+                messages=messages,
+                temperature=0.1,
+                max_tokens=max_tokens,
+                response_format={"type": "json_object"},
+                timeout=120,
+            )
+        except Exception as e:
+            last_error = e
+            err_str = str(e).lower()
+            err_type = type(e).__name__
+
+            # Permanent errors — don't retry
+            if "authentication" in err_str or "api key" in err_str or "invalid_api_key" in err_str:
+                raise _make_ai_error(
+                    "OpenAI API authentication failed. Check that your API key "
+                    "is valid and has not expired.", str(e),
+                )
+            if "insufficient_quota" in err_str or "quota" in err_str or "billing" in err_str:
+                raise _make_ai_error(
+                    "OpenAI API quota exceeded or billing issue. Check your "
+                    "OpenAI account balance and usage limits.", str(e),
+                )
+
+            # Transient errors — retry with backoff
+            if attempt < max_retries - 1:
+                wait = 2 ** attempt  # 1s, 2s, 4s
+                print(f"  AI call failed ({err_type}), retrying in {wait}s... "
+                      f"(attempt {attempt + 1}/{max_retries})")
+                time.sleep(wait)
+                continue
+
+    # All retries exhausted
+    raise _make_ai_error(
+        "Could not reach the OpenAI service after several attempts. "
+        "Check your internet connection and try again.",
+        str(last_error),
+    )
+
+
 def analyze_with_ai(agreement: AgreementType, text: str, sub_type: str = "") -> Tuple[dict, dict, dict]:
     """
     Send document text to AI for field extraction using agreement type config.
@@ -174,20 +234,28 @@ def analyze_with_ai(agreement: AgreementType, text: str, sub_type: str = "") -> 
     - dates: {field_name: "mm/dd/yyyy"} for date fields
     """
     print("  Sending to AI for analysis...")
-    client = get_openai_client()
+
+    try:
+        client = get_openai_client()
+    except RuntimeError as e:
+        # No API key
+        raise _make_ai_error(
+            "OpenAI API key not found. Place your key in "
+            "C:\\seedJura\\openai_api_key.txt or set the OPENAI_API_KEY "
+            "environment variable.",
+            str(e),
+        )
 
     prompt = build_extraction_prompt(agreement, text, sub_type=sub_type)
     system_prompt = agreement.system_prompt or _DEFAULT_SYSTEM_PROMPT
 
-    response = client.chat.completions.create(
-        model=AI_MODEL,
+    response = _call_openai_with_retry(
+        client,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt},
         ],
-        temperature=0.1,
         max_tokens=16000,
-        response_format={"type": "json_object"},
     )
 
     raw_response = response.choices[0].message.content.strip()

@@ -729,11 +729,22 @@ async function showPreview(uploadData) {
     container.innerHTML += html;
   }
 
-  // Saved files banner
+  // Skipped files warning (multi-file mode)
   const savedArea = document.getElementById('saved-area');
+  let skippedHtml = '';
+  if (uploadData.skipped_files && uploadData.skipped_files.length > 0) {
+    const items = uploadData.skipped_files.map(s => `<li><strong>${s.filename}</strong>: ${s.reason}</li>`).join('');
+    skippedHtml = `
+      <div class="saved-banner" style="background:#FEF3C7; border-color:#FDE68A; margin-bottom:12px;">
+        <h4 style="color:#92400E;">⚠ ${uploadData.skipped_files.length} file(s) skipped</h4>
+        <ul class="file-list" style="color:#92400E; list-style:none;">${items}</ul>
+      </div>
+    `;
+  }
+
   if (uploadData.saved_to_folder && uploadData.saved_files && uploadData.saved_files.length > 0) {
     let fileListHtml = uploadData.saved_files.map(f => `<li>${f}</li>`).join('');
-    savedArea.innerHTML = `
+    savedArea.innerHTML = skippedHtml + `
       <div class="saved-banner">
         <h4><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Files saved automatically</h4>
         <div class="folder-path">${uploadData.saved_to_folder}</div>
