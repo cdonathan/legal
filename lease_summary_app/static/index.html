@@ -104,9 +104,11 @@ input[type="text"]:focus, select:focus { border-color: #089498; }
 .phase-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 0.88rem; color: #64748B; }
 .phase-item.active { color: #089498; font-weight: 500; }
 .phase-item.done { color: #059669; }
+.phase-item.failed { color: #DC2626; font-weight: 500; }
 .phase-dot { width: 8px; height: 8px; border-radius: 50%; background: #E2E8F0; flex-shrink: 0; }
 .phase-item.active .phase-dot { background: #089498; animation: pulse 1s infinite; }
 .phase-item.done .phase-dot { background: #059669; }
+.phase-item.failed .phase-dot { background: #DC2626; animation: none; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
 /* Preview */
@@ -133,6 +135,32 @@ input[type="text"]:focus, select:focus { border-color: #089498; }
 
 /* Error */
 .error-card { background: #FEF2F2; border: 1px solid #FECACA; border-radius: 12px; padding: 24px; text-align: center; color: #991B1B; }
+
+/* Human Verification */
+#step-verify { display: none; }
+.verify-header { margin-bottom: 20px; }
+.verify-header h2 { font-size: 1.2rem; font-weight: 600; margin-bottom: 6px; }
+.verify-header p { font-size: 0.88rem; color: #64748B; }
+.verify-item { background: white; border-radius: 12px; border: 1px solid #FBBF24; margin-bottom: 16px; overflow: hidden; }
+.verify-item-header { display: flex; align-items: center; gap: 8px; padding: 14px 20px; background: #FFFBEB; border-bottom: 1px solid #FDE68A; }
+.verify-item-header .flag { color: #D97706; font-size: 1rem; }
+.verify-item-header .field-name { font-size: 0.9rem; font-weight: 600; color: #92400E; }
+.verify-item-header .source-file { font-size: 0.76rem; color: #B45309; margin-left: auto; }
+.verify-item-body { padding: 18px 20px; }
+.verify-instruction { font-size: 0.85rem; color: #334155; background: #F0F9FF; border: 1px solid #BAE6FD; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; line-height: 1.5; }
+.verify-screenshot { max-width: 100%; border: 1px solid #E2E8F0; border-radius: 8px; margin-bottom: 14px; display: block; }
+.verify-no-screenshot { font-size: 0.82rem; color: #94A3B8; margin-bottom: 14px; }
+.verify-ai-row { display: flex; align-items: flex-start; gap: 10px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+.verify-ai-row input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; accent-color: #089498; cursor: pointer; }
+.verify-ai-row .ai-label { font-size: 0.76rem; color: #64748B; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 3px; }
+.verify-ai-row .ai-value { font-size: 0.92rem; color: #1E293B; font-weight: 500; cursor: pointer; }
+.verify-ai-row.unresolved { border-color: #FCA5A5; background: #FEF2F2; }
+.verify-ai-row.unresolved .ai-value { color: #991B1B; font-style: italic; font-weight: 400; }
+.verify-input-row label { font-size: 0.78rem; color: #334155; margin-bottom: 6px; display: block; }
+.verify-input-row input[type="text"] { font-size: 0.92rem; }
+.verify-input-row input[type="text"]:disabled { background: #F1F5F9; color: #94A3B8; }
+.verify-skip-note { font-size: 0.76rem; color: #94A3B8; margin-top: 6px; }
+.verify-actions { display: flex; justify-content: center; gap: 12px; margin-top: 24px; padding-top: 20px; border-top: 1px solid #E2E8F0; }
 </style>
 </head>
 <body>
@@ -233,12 +261,23 @@ input[type="text"]:focus, select:focus { border-color: #089498; }
       <h2 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 8px;">Analyzing Agreement</h2>
       <p style="color: #64748B; font-size: 0.9rem;" id="processing-file"></p>
       <div id="processing-type" style="margin-top: 8px;"></div>
-      <div class="phase-list">
-        <div class="phase-item" id="phase-ingest"><span class="phase-dot"></span>Ingesting document</div>
-        <div class="phase-item" id="phase-pii"><span class="phase-dot"></span>Scanning for PII</div>
-        <div class="phase-item" id="phase-ai"><span class="phase-dot"></span>AI analysis &amp; extraction</div>
-        <div class="phase-item" id="phase-generate"><span class="phase-dot"></span>Generating summary document</div>
+      <div class="phase-list" id="phase-list">
+        <!-- Populated dynamically from live status polling -->
       </div>
+      <p id="processing-detail" style="color: #94A3B8; font-size: 0.78rem; margin-top: 16px;"></p>
+    </div>
+  </div>
+
+  <!-- Step 2B: Human Verification -->
+  <div id="step-verify">
+    <div class="verify-header">
+      <h2>Please Verify Hand-Written Text</h2>
+      <p>The source document(s) contain hand-written text for the field(s) below. Check the source image, then confirm the AI's reading is correct or type the correct value yourself.</p>
+    </div>
+    <div id="verify-items"></div>
+    <div class="verify-actions">
+      <button class="btn-secondary" id="verify-skip-btn">Skip All &amp; Continue</button>
+      <button class="btn-primary" id="verify-submit-btn">Submit Corrections &amp; Continue</button>
     </div>
   </div>
 
@@ -306,6 +345,7 @@ const optionsPanel = document.getElementById('options-panel');
 const processBtn = document.getElementById('process-btn');
 const stepUpload = document.getElementById('step-upload');
 const stepProcessing = document.getElementById('step-processing');
+const stepVerify = document.getElementById('step-verify');
 const stepPreview = document.getElementById('step-preview');
 const stepError = document.getElementById('step-error');
 const typeSelect = document.getElementById('agreement-type');
@@ -587,6 +627,8 @@ async function startProcessing() {
 
   // Show processing view
   showStep('processing');
+  document.getElementById('phase-list').innerHTML = '';
+  document.getElementById('processing-detail').textContent = '';
 
   const selectedType = typeSelect.value;
 
@@ -596,8 +638,6 @@ async function startProcessing() {
     document.getElementById('processing-file').textContent = `Folder: ${sourceFolder}`;
     document.getElementById('processing-type').innerHTML = `<span class="type-badge lease">Multi-File Summary</span>`;
 
-    animatePhase('ingest');
-
     const formData = new FormData();
     formData.append('folder_path', sourceFolder);
     formData.append('preparer', document.getElementById('preparer').value);
@@ -605,37 +645,20 @@ async function startProcessing() {
     formData.append('agreement_type', selectedType);
 
     try {
-      animatePhase('pii');
-      await sleep(300);
-      animatePhase('ai');
-
       const resp = await fetch('/api/upload-folder', { method: 'POST', body: formData });
       const data = await resp.json();
-
-      if (!resp.ok || data.status === 'error') {
-        throw new Error(data.error || 'Processing failed');
-      }
-
-      animatePhase('generate');
-      await sleep(400);
-      completePhases();
+      if (!resp.ok) throw new Error(data.detail || 'Failed to start processing');
 
       currentJobId = data.job_id;
-      await sleep(600);
-      await showPreview(data);
-
+      await pollJobStatus(currentJobId, true);
     } catch (err) {
       showError(err.message);
     }
   } else {
-    // Single file processing (existing logic)
+    // Single file processing
     document.getElementById('processing-file').textContent = selectedFile.name;
     const typeLabel = selectedType === 'auto' ? 'Auto-Detecting...' : (agreementTypes[selectedType]?.name || selectedType);
     document.getElementById('processing-type').innerHTML = `<span class="type-badge ${selectedType === 'auto' ? 'auto' : 'lease'}">${typeLabel}</span>`;
-
-    animatePhase('ingest');
-    await sleep(300);
-    animatePhase('pii');
 
     const formData = new FormData();
     formData.append('file', selectedFile);
@@ -644,45 +667,278 @@ async function startProcessing() {
     formData.append('agreement_type', selectedType);
 
     try {
-      animatePhase('ai');
       const resp = await fetch('/api/upload', { method: 'POST', body: formData });
       const data = await resp.json();
-
-      if (!resp.ok || data.status === 'error') {
-        throw new Error(data.error || 'Processing failed');
-      }
-
-      animatePhase('generate');
-      await sleep(400);
-      completePhases();
+      if (!resp.ok) throw new Error(data.detail || 'Failed to start processing');
 
       currentJobId = data.job_id;
-      await sleep(600);
-      await showPreview(data);
-
+      await pollJobStatus(currentJobId, false);
     } catch (err) {
       showError(err.message);
     }
   }
 }
 
-function animatePhase(phase) {
-  const el = document.getElementById('phase-' + phase);
-  const phases = ['ingest', 'pii', 'ai', 'generate'];
-  const idx = phases.indexOf(phase);
-  for (let i = 0; i < idx; i++) {
-    const prev = document.getElementById('phase-' + phases[i]);
-    prev.classList.remove('active');
-    prev.classList.add('done');
-  }
-  el.classList.add('active');
+// ============================================================
+// LIVE PROGRESS POLLING
+// ============================================================
+
+// Human-readable labels for known phases (in expected pipeline order).
+// Any phase the backend reports that isn't in this map still renders,
+// using its raw key as the label, so nothing gets silently hidden.
+// Single-file jobs report: ingest, pii, ai, verify, interpret, retry, qa, generate.
+// Multi-file jobs report: ingest, pii, classify, ai_primary, ai_batch, verify,
+// merge, interpret, retry, qa, generate (classify/ai_primary/ai_batch/merge
+// replace the single "ai" step since multi-file reads the lease + latest
+// amendment together, then batches the rest in parallel, then merges history).
+const PHASE_LABELS = {
+  ingest: 'Ingesting document(s)',
+  pii: 'Scanning for PII',
+  classify: 'Identifying lease and latest amendment',
+  ai: 'AI raw extraction',
+  ai_primary: 'AI raw extraction — lease + latest amendment',
+  ai_batch: 'AI raw extraction — other documents (parallel)',
+  verify: 'Verifying against source text',
+  verify_human: 'Human verification',
+  merge: 'Merging document history',
+  interpret: 'AI interpretation',
+  retry: 'Targeted retry for incomplete fields',
+  qa: 'AI QA / feedback pass',
+  generate: 'Generating summary document',
+};
+const PHASE_ORDER = [
+  'ingest', 'pii', 'classify', 'ai', 'ai_primary', 'ai_batch',
+  'verify', 'verify_human', 'merge', 'interpret', 'retry', 'qa', 'generate',
+];
+
+function renderPhases(phases) {
+  const container = document.getElementById('phase-list');
+  const keys = Object.keys(phases).sort((a, b) => {
+    const ia = PHASE_ORDER.indexOf(a), ib = PHASE_ORDER.indexOf(b);
+    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+  });
+
+  container.innerHTML = keys.map(key => {
+    const status = phases[key] || '';
+    const label = PHASE_LABELS[key] || key;
+    let cls = '';
+    let detail = '';
+    if (status.startsWith('failed')) {
+      cls = 'failed';
+      detail = ` — ${status}`;
+    } else if (status === 'running' || status.startsWith('running (')) {
+      cls = 'active';
+      const m = status.match(/running \((.+)\)/);
+      detail = m ? ` — ${m[1]}` : '';
+    } else if (status.startsWith('done')) {
+      cls = 'done';
+      const m = status.match(/done \((.+)\)/);
+      detail = m ? ` — ${m[1]}` : '';
+    }
+    return `<div class="phase-item ${cls}"><span class="phase-dot"></span>${label}${detail}</div>`;
+  }).join('');
 }
 
-function completePhases() {
-  document.querySelectorAll('.phase-item').forEach(el => {
-    el.classList.remove('active');
-    el.classList.add('done');
+async function pollJobStatus(jobId, isMulti) {
+  const POLL_INTERVAL_MS = 1500;
+  const MAX_POLL_MS = 20 * 60 * 1000; // safety cap: stop polling after 20 min
+  const MAX_CONSECUTIVE_POLL_FAILURES = 5; // tolerate brief blips before giving up
+  const startedAt = Date.now();
+  let consecutiveFailures = 0;
+
+  while (true) {
+    let status;
+    try {
+      const resp = await fetch(`/api/status/${jobId}`);
+      if (!resp.ok) throw new Error('Lost track of this job — please try again.');
+      status = await resp.json();
+      consecutiveFailures = 0;
+    } catch (err) {
+      consecutiveFailures++;
+      if (consecutiveFailures >= MAX_CONSECUTIVE_POLL_FAILURES) {
+        showError(err.message);
+        return;
+      }
+      // Transient blip (e.g. a status read caught mid-write) - wait and
+      // retry rather than failing the whole job on one bad poll.
+      await sleep(POLL_INTERVAL_MS);
+      continue;
+    }
+
+    if (status.phases) {
+      renderPhases(status.phases);
+    }
+
+    if (status.status === 'complete') {
+      await showPreview(status);
+      return;
+    }
+
+    if (status.status === 'error') {
+      const detail = status.error_kind ? ` (${status.error_kind})` : '';
+      showError((status.error || 'Processing failed') + detail);
+      return;
+    }
+
+    if (status.status === 'needs_verification') {
+      // Pipeline is paused waiting on a human. Show the review form and
+      // stop this poll loop - submitting/skipping resumes it with a fresh
+      // pollJobStatus call.
+      showVerificationForm(jobId, status.verification_items || []);
+      return;
+    }
+
+    if (Date.now() - startedAt > MAX_POLL_MS) {
+      showError('This is taking much longer than expected. The job may still be running in the background — check back later, or try again.');
+      return;
+    }
+
+    await sleep(POLL_INTERVAL_MS);
+  }
+}
+
+// ============================================================
+// HUMAN VERIFICATION
+// ============================================================
+function showVerificationForm(jobId, items) {
+  showStep('verify');
+  const container = document.getElementById('verify-items');
+
+  if (!items.length) {
+    container.innerHTML = '<p style="color:#64748B;">No details available for the flagged field(s).</p>';
+  }
+
+  container.innerHTML = items.map((item) => {
+    const screenshotHtml = item.screenshot_url
+      ? `<img class="verify-screenshot" src="${item.screenshot_url}" alt="Source document excerpt">`
+      : '<p class="verify-no-screenshot">No source screenshot available for this field.</p>';
+
+    // Confident AI reading: show it with a checkbox to confirm ("AI got it
+    // right, use this value"). Checked by default - unchecking or editing
+    // the text box below overrides it. Outright AI failures (still carrying
+    // the NEEDS VERIFICATION marker) get no checkbox - there's nothing
+    // confident to confirm, just a required text box.
+    const aiRowHtml = item.ai_confident
+      ? `<div class="verify-ai-row" data-ai-row="${escapeHtml(item.field)}">
+           <input type="checkbox" checked data-verify-checkbox="${escapeHtml(item.field)}">
+           <div>
+             <div class="ai-label">AI read this as</div>
+             <div class="ai-value" data-ai-value-label="${escapeHtml(item.field)}">${escapeHtml(item.ai_value)}</div>
+           </div>
+         </div>`
+      : `<div class="verify-ai-row unresolved">
+           <div>
+             <div class="ai-label">AI could not confidently read this</div>
+             <div class="ai-value">Please enter the correct value below</div>
+           </div>
+         </div>`;
+
+    const inputPlaceholder = item.is_date
+      ? 'e.g. November 22, 2019'
+      : 'Type the correct value here...';
+
+    return `
+      <div class="verify-item" data-field="${escapeHtml(item.field)}">
+        <div class="verify-item-header">
+          <span class="flag">&#9888;</span>
+          <span class="field-name">${escapeHtml(item.label || item.field)}</span>
+          ${item.source_file ? `<span class="source-file">${escapeHtml(item.source_file)}</span>` : ''}
+        </div>
+        <div class="verify-item-body">
+          ${item.instruction ? `<p class="verify-instruction">${escapeHtml(item.instruction)}</p>` : ''}
+          ${screenshotHtml}
+          ${aiRowHtml}
+          <div class="verify-input-row">
+            <label>${item.ai_confident ? 'Or, if the AI got it wrong, enter the correct value' : 'Enter the correct value'}</label>
+            <input type="text" data-verify-input="${escapeHtml(item.field)}"
+                   placeholder="${escapeHtml(inputPlaceholder)}"
+                   ${item.ai_confident ? 'disabled' : ''}>
+            ${item.ai_confident ? '' : '<div class="verify-skip-note">Leave blank to keep this field flagged "NEEDS VERIFICATION" in the report.</div>'}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Wire up checkbox <-> text input behavior: checking the box disables and
+  // clears the override text box (confirms the AI's value as-is); unchecking
+  // it enables the text box for the user to type a correction. Clicking the
+  // AI value text also toggles the checkbox for convenience.
+  container.querySelectorAll('[data-verify-checkbox]').forEach(checkbox => {
+    const field = checkbox.getAttribute('data-verify-checkbox');
+    const input = container.querySelector(`[data-verify-input="${cssEscape(field)}"]`);
+    checkbox.addEventListener('change', () => {
+      input.disabled = checkbox.checked;
+      if (checkbox.checked) input.value = '';
+    });
   });
+  container.querySelectorAll('[data-ai-value-label]').forEach(label => {
+    const field = label.getAttribute('data-ai-value-label');
+    const checkbox = container.querySelector(`[data-verify-checkbox="${cssEscape(field)}"]`);
+    label.addEventListener('click', () => {
+      checkbox.checked = !checkbox.checked;
+      checkbox.dispatchEvent(new Event('change'));
+    });
+  });
+
+  const submitBtn = document.getElementById('verify-submit-btn');
+  const skipBtn = document.getElementById('verify-skip-btn');
+
+  const doSubmit = async (corrections) => {
+    submitBtn.disabled = true;
+    skipBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+    try {
+      const resp = await fetch(`/api/verify/${jobId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ corrections }),
+      });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data.detail || 'Failed to submit corrections');
+      }
+      showStep('processing');
+      await pollJobStatus(jobId, currentMode === 'multi');
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      submitBtn.disabled = false;
+      skipBtn.disabled = false;
+      submitBtn.textContent = 'Submit & Continue';
+    }
+  };
+
+  submitBtn.onclick = () => {
+    // For each field: if its checkbox is checked (AI's value confirmed),
+    // send the AI's own value as the "correction" so it's no longer flagged
+    // NEEDS VERIFICATION downstream. If unchecked (or there was no
+    // checkbox, i.e. an outright AI failure), send whatever the user typed
+    // - if they left it blank, the field stays flagged.
+    const corrections = {};
+    items.forEach(item => {
+      const checkbox = container.querySelector(`[data-verify-checkbox="${cssEscape(item.field)}"]`);
+      const input = container.querySelector(`[data-verify-input="${cssEscape(item.field)}"]`);
+      if (checkbox && checkbox.checked) {
+        corrections[item.field] = item.ai_value;
+      } else if (input && input.value.trim()) {
+        corrections[item.field] = input.value.trim();
+      }
+    });
+    doSubmit(corrections);
+  };
+
+  skipBtn.onclick = () => doSubmit({});
+}
+
+function cssEscape(str) {
+  return String(str).replace(/["\\]/g, '\\$&');
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : String(str);
+  return div.innerHTML;
 }
 
 // ============================================================
@@ -691,6 +947,11 @@ function completePhases() {
 async function showPreview(uploadData) {
   const resp = await fetch(`/api/preview/${currentJobId}`);
   const data = await resp.json();
+
+  if (!resp.ok || !Array.isArray(data.sections)) {
+    showError(data.detail || 'Could not load the summary preview for this job.');
+    return;
+  }
 
   // Stats
   const statsRow = document.getElementById('stats-row');
@@ -775,9 +1036,7 @@ function resetAll() {
   currentJobId = null;
   processBtn.disabled = false;
   processBtn.textContent = 'Generate Summary';
-  document.querySelectorAll('.phase-item').forEach(el => {
-    el.classList.remove('active', 'done');
-  });
+  document.getElementById('phase-list').innerHTML = '';
   document.getElementById('source-folder').value = '';
   document.getElementById('source-folder-info').textContent = '';
   showStep('upload');
@@ -789,6 +1048,7 @@ function resetAll() {
 function showStep(step) {
   stepUpload.style.display = step === 'upload' ? 'block' : 'none';
   stepProcessing.style.display = step === 'processing' ? 'block' : 'none';
+  stepVerify.style.display = step === 'verify' ? 'block' : 'none';
   stepPreview.style.display = step === 'preview' ? 'block' : 'none';
   stepError.style.display = step === 'error' ? 'block' : 'none';
 }

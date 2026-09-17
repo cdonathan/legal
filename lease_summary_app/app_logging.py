@@ -45,6 +45,8 @@ CODES = {
     "E203": "OpenAI service unreachable after retries",
     "E204": "AI response was not valid JSON",
     "E205": "AI returned no fields",
+    "E206": "OpenAI request timed out repeatedly",
+    "E207": "Circuit breaker tripped - repeated timeouts, aborted job",
     # Verification errors (E3xx)
     "E300": "Source verification error",
     # Output errors (E4xx)

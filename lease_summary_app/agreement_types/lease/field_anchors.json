@@ -134,5 +134,21 @@
     "guaranty.*shall.*remain.*in.*effect",
     "guarantor.*liable.*entire.*term",
     "guarantee.*term.*lease"
+  ],
+  "Date_Opening": [
+    "opening date.*means",
+    "opening date.*shall.*mean",
+    "tenant shall open.*for business",
+    "date.*tenant.*opens.*for business"
+  ],
+  "Tenant_Share_Amount": [
+    "tenant.*share.*shall be.*\\$",
+    "tenant.*pay.*proportionate share.*\\$",
+    "tenant's share.*fixed.*amount"
+  ],
+  "Tenant_Allowance_Additional": [
+    "landlord may provide additional.*funds",
+    "additional.*allowance.*up to",
+    "supplemental.*tenant improvement.*allowance"
   ]
 }

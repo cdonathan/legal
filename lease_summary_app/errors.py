@@ -6,9 +6,10 @@ Each carries a user-friendly message that can be shown in the UI.
 
 class ProcessingError(Exception):
     """Base class for all processing errors. Carries a user-friendly message."""
-    def __init__(self, message: str, detail: str = ""):
+    def __init__(self, message: str, detail: str = "", kind: str = ""):
         self.message = message
         self.detail = detail
+        self.kind = kind
         super().__init__(message)
 
 

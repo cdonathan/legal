@@ -67,18 +67,20 @@
     }
   },
 
-  "system_prompt": "You are a commercial lease data extractor. You ONLY copy and paste exact text from lease documents. You NEVER summarize, paraphrase, or use your own words. Every value you return must appear verbatim in the source document.",
+  "system_prompt": "You are a commercial lease data extractor. You ONLY copy and paste exact text from lease documents. You NEVER summarize, paraphrase, or use your own words. Every 'text' value you return must appear verbatim in the source document.",
 
-  "extraction_rules": "CRITICAL RULES - READ CAREFULLY:\n- You MUST copy/paste exact language from the document. Do NOT summarize, paraphrase, or reword.\n- Every value you return must be text that appears verbatim in the document.\n- If a provision is not found or not applicable, return \"None.\" (with period).\n- For dates, copy the exact phrasing (e.g., \"the earlier to occur of A) November 1, 2022, or B) the earlier of...\").\n- For dollar amounts, copy exactly as written including $ sign.\n- For percentages, copy exactly as written.\n- Include section/article references when they appear near the relevant text (e.g., \"Sec. 7 -\", \"Section 37 -\").\n- IMPORTANT: Start each extraction at the BEGINNING of the relevant sentence or clause. Do not start mid-sentence.\n- For long provisions (assignment, insurance, repair, OPEX, permitted use): copy the FULL relevant clause starting from its topic sentence. Include up to 300 words.\n- When a provision states \"None\" or the concept does not exist in the lease, return \"None.\"\n- For options (ROFR, ROFO, Expansion, Purchase, Early Termination, Reduction): if the lease does not grant such an option, return \"None.\"\n- For Permitted Use: find the clause that states what the premises may be used for. Start from \"Tenant shall use\" or equivalent.\n- For Commencement Date: copy the full definition including all conditions (A, B, C options if present).\n- For OPEX: start from the beginning of the list (e.g., \"a) grounds maintenance...\" not mid-list).",
+  "extraction_rules": "CRITICAL RULES - READ CAREFULLY:\n- You MUST copy/paste exact language from the document. Do NOT summarize, paraphrase, or reword. Every 'text' value you return must be text that appears verbatim in the document.\n- If a provision is not found or not applicable, \"text\" should be \"None.\" (with period).\n- SECTION (\"section\"): whenever you find data, ALWAYS report the section/article reference exactly as labeled in the document (e.g. \"Section 3.8\", \"Article 7\", \"Sec. 12(b)\"). Empty string only if the document truly has no section numbering nearby.\n- For dollar amounts in \"text\", copy exactly as written including $ sign and the written-out amount if present.\n- IMPORTANT: Start each extraction at the BEGINNING of the relevant sentence or clause. Do not start mid-sentence.\n- For long provisions (assignment, insurance, repair, OPEX, permitted use): copy the FULL relevant clause starting from its topic sentence (up to 300 words).\n- For options (ROFR, ROFO, Expansion, Purchase, Early Termination, Reduction): if the lease does not grant such an option, \"text\" is \"None.\".\n- For Permitted Use: start from \"Tenant shall use\" or equivalent.\n- For Commencement Date: copy the full definition including all conditions (A, B, C options if present).\n- For OPEX: start from the beginning of the list (e.g., \"a) grounds maintenance...\").\n- For entity names appearing more than once across a lease + amendments (owner, guarantor, etc.): carry every name with its source document.",
+
+  "interpretation_rules": "Give a precise, useful reading of the raw text, in the context of the full lease and any amendments:\n- Single facts (names, dates, dollar amounts, percentages, counts, Yes/No questions): return JUST the precise value, not the full sentence. E.g. \"$13,825\" not \"Thirteen Thousand Eight Hundred Twenty-Five and 00/100 Dollars ($13,825.00)\"; \"125 months\" not a full sentence describing the term; \"5 business days after the Effective Date\" not the whole clause.\n- Yes/No questions: answer \"Yes\", \"Yes, but need Landlord's consent\", \"No\", etc. - plus any material conditions in a short trailing clause.\n- Boilerplate/no-charge provisions (e.g. parking \"at no charge, in common with other tenants\"): interpretation is \"None\" (nothing for Tenant to pay/track), even though the raw clause has text.\n- Clauses with multiple distinct parts (insurance, OPEX, assignment, repair obligations, signage, etc.): break the interpretation into a lettered list - (a) ..., (b) ..., (c) ... - one item per distinct requirement/right, in plain language.\n- If the raw text is \"None.\" or genuinely has nothing to interpret, return exactly \"None\" (no period).\n- Do not include the section reference - that is tracked separately.\n- For Permitted Use: give just the permitted-use description itself (drop the defining boilerplate like 'Tenant shall use the Leased Premises for' and 'collectively, the \"Permitted Use\"').\n- For Commencement Date: give the single most likely/precise date or trigger event.\n- For OPEX: give a lettered list of the OPEX categories only (no boilerplate).\n- For entity names appearing more than once across a lease + amendments (owner, guarantor, etc.): give the CURRENT/latest name.",
 
   "fields": {
     "Lease_Summary_Preparer": "Name of person preparing this summary",
     "Lease_Summary_Date": "Date the summary was prepared",
     "Lease_Summary_Purpose": "Purpose of the summary (e.g., purchase, review)",
     "Property_Name": "Name of the property/project",
-    "Property_Address_1": "Street address line 1",
-    "Property_Address_2": "Street address line 2 (suite, unit)",
-    "Property_Address_City": "City",
+    "Property_Address_1": "Street address line 1 of the WHOLE PROJECT/BUILDING (not the Tenant's specific suite/unit). Find this in the WITNESSETH/RECITALS near the start of the lease, where the Building/Project/Property is defined - NOT in the 'Premises'/'Leased Premises'/'Demised Premises' definition, which describes the Tenant's specific space",
+    "Property_Address_2": "Street address line 2 of the WHOLE PROJECT/BUILDING only (e.g. a floor or wing of the building). Do NOT put the Tenant's Suite/Unit number here - that belongs in Premises_UnitNumber_Description. If there is no second address line for the building itself, return 'None.'",
+    "Property_Address_City": "City of the Project/Building",
     "Property_Address_State": "State",
     "Property_Address_Zip": "Zip code",
     "Owner_Name": "Property owner/landlord name",
@@ -103,15 +105,17 @@
     "Tenant_CopyTo_Email": "Notice copy-to email",
     "Tenant_Attn": "Tenant attention/contact person",
     "Tenant_Email": "Tenant email address",
-    "Premises_UnitNumber_Description": "Suite/unit number and description",
+    "Premises_UnitNumber_Description": "ONLY the suite/space number as the lease labels it (e.g. 'Suite 300' or 'Space No. 300' or 'FC6A') - do NOT include the building name/address or any description of where it is located within the building/project",
     "Premises_SqFt": "Square footage of premises",
     "LeaseAgr_Name": "Name/title of the lease agreement",
     "LeaseAgr_Amendments": "Any amendments to the lease",
-    "Date_Lease": "Lease effective date",
+    "Date_Lease": "The ORIGINAL LEASE's own effective/signing date - found in the ORIGINAL LEASE document's own opening paragraph (e.g. 'THIS LEASE is between... The date of this Lease is ___'). If you are reading an AMENDMENT document, do NOT extract this from the amendment's recital paragraph that recites the lease's amendment history (e.g. 'Under the lease dated July 30, 2007 as amended by a First Amendment... a Second Amendment...') - that recital paragraph is historical context, not this document's own facts. Return 'None.' if reading an amendment/addendum rather than the original lease itself.",
+    "Amendment_Effective_Date": "ONLY applicable when reading an AMENDMENT/ADDENDUM document (not the original lease): this specific amendment's OWN effective/execution date, from its own opening paragraph (e.g. 'THIS FIRST AMENDMENT... is made and dated ___, 20__ (the \"Effective Date\")'). Do NOT pull this from the recital paragraph listing prior amendments' dates - only this document's own stated date. Return 'None.' if reading the original lease itself (use Date_Lease for that).",
     "Date_Commencment": "Commencement date - include FULL conditional language if applicable",
     "Lease_Term": "Length of lease term with full description",
     "Date_Expiration": "Expiration date with full conditional language",
     "Date_EarlyAccess": "Early access terms - full language",
+    "Date_Opening": "Store/business opening date, if separately defined from Commencement Date (e.g. 'Opening Date') - has no independent legal effect but is often tracked. Return 'None.' if the lease has no separate Opening Date concept",
     "Renewal_Option_Numbers": "Number of renewal options with conditions (e.g., doesn't apply to Assignment)",
     "Renewal_Option_Period_PerOption": "Period per renewal option",
     "Amt_Security_Deposit": "Security deposit amount",
@@ -126,11 +130,13 @@
     "Rent_Abatement_Base_Rent": "Is base rent abated?",
     "Rent_Abatement_Additional_Rent": "Is additional rent abated?",
     "Rent_Abatement_Qualifier": "Conditions for rent abatement",
-    "Tenant_Share_Percentage": "Tenant's percentage share of expenses",
+    "Tenant_Share_Percentage": "Tenant's percentage share of expenses (as a %)",
+    "Tenant_Share_Amount": "Tenant's share of expenses stated as a dollar amount instead of (or in addition to) a percentage - some leases state a fixed $ figure rather than a %. Return 'None.' if only a percentage is given",
     "Rent_PercentageRent_ThresholdAmt": "Percentage rent threshold",
     "Rent_PercentageRent_Percent": "Percentage rent rate",
     "Tenant_Allowance_PSF": "Tenant improvement allowance per sq ft",
     "Tenant_Allowance_Total": "Total tenant improvement allowance",
+    "Tenant_Allowance_Additional": "Any ADDITIONAL tenant improvement funds Landlord may provide beyond the standard allowance (e.g. 'Landlord may provide additional funds up to $55 per sq ft') - full language and amount. Return 'None.' if there is no additional/supplemental TI funding provision",
     "Permitted_Use_Description": "Permitted use - quote full clause including restrictions",
     "Parking_Reserved_Spaces": "Reserved parking spaces with description",
     "Parking_Unreserved_Spaces": "Unreserved parking spaces with description",
@@ -140,8 +146,8 @@
     "Guarantor_StReg": "Guarantor state of registration",
     "Guarantor_Type": "Guarantor entity type",
     "Guaranty_Term": "Term of the guaranty",
-    "Broker_Landlord_Name": "Landlord's broker",
-    "Broker_Tenant_Name": "Tenant's broker",
+    "Broker_Landlord_Name": "Landlord's broker - if the lease does not make clear which side a named broker represents, put the same broker name in both Broker_Landlord_Name and Broker_Tenant_Name",
+    "Broker_Tenant_Name": "Tenant's broker - if the lease does not make clear which side a named broker represents, put the same broker name in both Broker_Landlord_Name and Broker_Tenant_Name",
     "Tenant_Improvements_Description": "Landlord work / tenant improvements - full description with dollar amounts",
     "ROFR_Space": "ROFR applicable space (or 'None' if not applicable)",
     "ROFR_Description": "ROFR description - full language",
@@ -204,10 +210,10 @@
     "Tenant_CopyTo_Address_City", "Tenant_CopyTo_Address_State",
     "Tenant_CopyTo_Address_Zip", "Tenant_CopyTo_Attn", "Tenant_CopyTo_Email",
     "Premises_UnitNumber_Description", "Premises_SqFt",
-    "LeaseAgr_Name", "Date_Lease",
+    "LeaseAgr_Name", "Date_Lease", "Amendment_Effective_Date", "Date_Opening",
     "Amt_Security_Deposit", "Rent_BaseRent_PSF", "Rent_BaseRent_Amt",
     "Rent_BaseRent_Monthly", "Rent_AnnualIncrease_Percentage", "Base_Year",
-    "Tenant_Share_Percentage", "Rent_PercentageRent_ThresholdAmt",
+    "Tenant_Share_Percentage", "Tenant_Share_Amount", "Rent_PercentageRent_ThresholdAmt",
     "Rent_PercentageRent_Percent", "Tenant_Allowance_PSF", "Tenant_Allowance_Total",
     "Parking_Reserved_Amt_Fees", "Parking_Unreserved_Amt_Fees",
     "Guarantor_Name", "Guarantor_StReg", "Guarantor_Type",
@@ -229,7 +235,8 @@
     "Purchase_Option_Space", "Purchase_Option_Description",
     "Guaranty_Term", "Gross_Up_Percent_Language",
     "Assignment_LL_Decision", "Assignment_Rent_Profit",
-    "Assignment_Recapture_Space", "Assignment_Change_Control"
+    "Assignment_Recapture_Space", "Assignment_Change_Control",
+    "Date_Opening", "Tenant_Share_Amount", "Tenant_Allowance_Additional"
   ],
 
   "expected_fields": [
@@ -255,7 +262,9 @@
     "Assignment_Affiliates": "Look for 'Permitted Transfer' or 'Tenant may without consent assign to parent, affiliate, subsidiary'",
     "Holdover_Rent": "Look for 'Holdover' or 'holding over' with a rent percentage (150%, 200%, double)",
     "Date_Commencment": "Look for 'Commencement Date' definition - often in definitions section with conditions A) B) C)",
-    "Lease_Term": "Look for 'Term' definition with number of months"
+    "Lease_Term": "Look for 'Term' definition with number of months",
+    "Property_Address_1": "Look in the WITNESSETH or RECITALS near the start of the lease where the Building/Project/Property (not the 'Premises') is defined",
+    "Premises_UnitNumber_Description": "Look for 'Suite No.' or 'Space No.' - return ONLY that number/code, not the surrounding building description"
   },
 
   "sections": [
@@ -317,10 +326,12 @@
         ["LeaseAgr_Name", "Lease Agreement Name"],
         ["LeaseAgr_Amendments", "Amendments"],
         ["Date_Lease", "Lease Effective Date"],
+        ["Amendment_Effective_Date", "Latest Amendment Effective Date"],
         ["Date_Commencment", "Commencement Date"],
         ["Lease_Term", "Lease Term"],
         ["Date_Expiration", "Expiration Date"],
         ["Date_EarlyAccess", "Early Access"],
+        ["Date_Opening", "Opening Date"],
         ["Renewal_Option_Numbers", "Renewal Options"],
         ["Renewal_Option_Period_PerOption", "Period Per Option"]
       ]
@@ -351,10 +362,12 @@
       "title": "Additional Rent & Allowances",
       "fields": [
         ["Tenant_Share_Percentage", "Tenant's Percentage Share"],
+        ["Tenant_Share_Amount", "Tenant's Share Amount ($)"],
         ["Rent_PercentageRent_ThresholdAmt", "Percentage Rent Threshold"],
         ["Rent_PercentageRent_Percent", "Percentage Rent Rate"],
         ["Tenant_Allowance_PSF", "TI Allowance Per Sq. Ft."],
-        ["Tenant_Allowance_Total", "TI Allowance Total"]
+        ["Tenant_Allowance_Total", "TI Allowance Total"],
+        ["Tenant_Allowance_Additional", "Additional TI Funds"]
       ]
     },
     {

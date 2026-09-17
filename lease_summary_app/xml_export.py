@@ -175,6 +175,13 @@ def field_data_to_xml(field_data: Dict[str, str], normalized_dates: Dict[str, st
     Convert extracted field data dict to the GlobalFormVars XML format.
     Returns XML string.
     normalized_dates: optional dict of {field_name: "mm/dd/yyyy"}
+
+    Every base field in XML_FIELDS is emitted along with its two
+    companion variables:
+      <FieldName>       -- base value
+      <FieldName_Int>   -- Interpretation (precise/latest value + section ref)
+      <FieldName_Raw>   -- Raw Data (verbatim copy/paste, all historical
+                            versions with document + section references)
     """
     if normalized_dates is None:
         normalized_dates = {}
@@ -187,39 +194,61 @@ def field_data_to_xml(field_data: Dict[str, str], normalized_dates: Dict[str, st
         if not value:
             continue
 
-        # Check if this field needs name mapping
-        if internal_name in FIELD_TO_XML_MAP:
-            xml_name = FIELD_TO_XML_MAP[internal_name]
-            if xml_name is None:
-                continue
-            xml_values[xml_name] = value
-            if internal_name in normalized_dates:
-                xml_dates[xml_name] = normalized_dates[internal_name]
-        else:
-            xml_values[internal_name] = value
-            if internal_name in normalized_dates:
-                xml_dates[internal_name] = normalized_dates[internal_name]
+        # Split off any _Int/_Raw suffix so we can remap the base name and
+        # re-attach the same suffix afterward.
+        suffix = ""
+        base_internal = internal_name
+        for s in ("_Int", "_Raw"):
+            if internal_name.endswith(s):
+                suffix = s
+                base_internal = internal_name[: -len(s)]
+                break
 
-    # Handle Early_Termination split
+        # Check if this field needs name mapping
+        if base_internal in FIELD_TO_XML_MAP:
+            xml_base = FIELD_TO_XML_MAP[base_internal]
+            if xml_base is None:
+                continue
+        else:
+            xml_base = base_internal
+
+        xml_name = f"{xml_base}{suffix}"
+        xml_values[xml_name] = value
+        if not suffix and base_internal in normalized_dates:
+            xml_dates[xml_name] = normalized_dates[base_internal]
+
+    # Handle Early_Termination split (base value only; _Int/_Raw pass through
+    # under their own already-mapped names since Early_Termination_Description
+    # isn't in XML_FIELDS as a bare field)
     et_value = field_data.get("Early_Termination_Description", "")
     if et_value:
         ll_text, tn_text = _split_early_termination(et_value)
         xml_values["Early_Termination_LL_Description"] = ll_text
         xml_values["Early_Termination_Tenant_Description"] = tn_text
+    for suffix in ("_Int", "_Raw"):
+        et_variant = field_data.get(f"Early_Termination_Description{suffix}", "")
+        if et_variant:
+            ll_text, tn_text = _split_early_termination(et_variant)
+            xml_values[f"Early_Termination_LL_Description{suffix}"] = ll_text
+            xml_values[f"Early_Termination_Tenant_Description{suffix}"] = tn_text
 
     # Build XML
     root = ET.Element("GlobalFormVars")
 
-    for xml_field in XML_FIELDS:
-        elem = ET.SubElement(root, xml_field)
-        val = xml_values.get(xml_field, "")
-        # Clean "None." values — leave empty in XML
+    def _clean(val):
         if val.strip().lower() in ('none', 'none.', 'n/a', 'not applicable'):
-            val = ""
-        elem.text = val if val else None
-        # Add normalized date as attribute if available
-        if xml_field in xml_dates:
-            elem.set("normalized_date", xml_dates[xml_field])
+            return ""
+        return val
+
+    for xml_field in XML_FIELDS:
+        for suffix in ("", "_Int", "_Raw"):
+            name = f"{xml_field}{suffix}"
+            elem = ET.SubElement(root, name)
+            val = _clean(xml_values.get(name, ""))
+            elem.text = val if val else None
+            # Add normalized date as attribute if available (base field only)
+            if not suffix and xml_field in xml_dates:
+                elem.set("normalized_date", xml_dates[xml_field])
 
     # Generate XML string with declaration
     rough_string = ET.tostring(root, encoding="unicode", xml_declaration=False)

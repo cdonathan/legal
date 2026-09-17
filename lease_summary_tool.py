@@ -21,6 +21,7 @@ import sys
 import re
 import json
 import copy
+from typing import Optional
 import argparse
 from datetime import datetime
 from pathlib import Path
@@ -268,6 +269,76 @@ def _fix_handwritten_dates(text: str) -> str:
 
     text = garbled_day_pattern.sub(_replace_garbled, text)
 
+    # Catch common fill-in-the-blank template phrasings where the
+    # month/day and the last digits of the year are hand-written, e.g.:
+    #   "The date of this Lease is ___ , 20__ ("Commencement Date")"
+    #   "...is made and dated ___ , 20__ (the "Effective Date")"
+    # OCR (or a bad text layer already baked into the PDF) frequently
+    # mangles the handwritten portion into nonsense like '50, 20J_'.
+    # WORSE: sometimes there's no OCR garbage at all - the handwritten text
+    # is simply MISSING from the extracted text entirely (a true blank gap,
+    # e.g. "dated \n 20 \n," with nothing between "dated" and "20"), which
+    # produces no garbled token to flag at all under the old check. Both
+    # cases are handled here: the day/date token in the blank is allowed to
+    # be EMPTY (just whitespace/newlines), not just present-but-garbled.
+    # Pattern: "is|dated <blank-or-garbage> , 20<blank-or-garbage>"
+    date_is_pattern = re.compile(
+        r'(\b(?:is|dated)\s*)([^\n,]{0,20}?)\s*,\s*(20[0-9OoIlJ_\s]{0,4})\b',
+        re.IGNORECASE,
+    )
+
+    def _replace_date_is(match):
+        prefix, day_token, year_token = match.group(1), match.group(2).strip(), match.group(3).strip()
+        # Leave alone if it already looks like a normal, clean date
+        # (e.g. "is January 1, 2021" or "is the 1st, 2021").
+        if re.match(r'^(?:' + months + r')\s+\d{1,2}(?:st|nd|rd|th)?$', day_token, re.IGNORECASE):
+            return match.group(0)
+        if re.match(r'^\d{1,2}(?:st|nd|rd|th)?$', day_token, re.IGNORECASE) and re.match(r'^20\d{2}$', year_token):
+            return match.group(0)
+        # A bare "is ,"/"dated ," with no year digits at all is very likely
+        # just a false positive (e.g. "...is , therefore...") - require the
+        # year fragment to at least start with "20" before flagging.
+        if not re.match(r'^20', year_token, re.IGNORECASE):
+            return match.group(0)
+        day_display = day_token if day_token else "(blank)"
+        year_display = year_token if year_token else "(blank)"
+        # Otherwise this looks like a garbled OR truly-blank fill-in-the-
+        # blank date - flag both pieces for the AI (and any downstream
+        # sanity check) rather than silently passing through nonsense or
+        # an incomplete template fragment like "20 , (the Effective Date)".
+        return f"{prefix}[handwritten: {day_display}], [handwritten-year: {year_display}]"
+
+    text = date_is_pattern.sub(_replace_date_is, text)
+
+    # Catch fill-in-the-blank dates anchored on a quoted date-label
+    # parenthetical, e.g. '...is made and dated ___ (the "Effective Date")'.
+    # This is a more reliable anchor than trying to parse day/comma/year
+    # separately (the pattern above): real-world extraction sometimes drops
+    # BOTH the handwritten day and part of the surrounding punctuation
+    # entirely (a true blank gap with nothing between "dated" and the
+    # printed "20", and nothing readable between "20" and the label), which
+    # the day/comma/year pattern above can fail to match at all. Here,
+    # anything captured between "dated"/"is" and the quoted label is
+    # checked: if it already looks like a clean, complete date, it's left
+    # alone; otherwise the whole captured span is flagged, even if empty.
+    labeled_date_pattern = re.compile(
+        r'\b(dated)\b\s*([^()]{0,40}?)\s*\(the\s*["\u201c](?:Effective|Commencement|Execution|Lease)\s*Date["\u201d]\)',
+        re.IGNORECASE,
+    )
+
+    def _replace_labeled_date(match):
+        prefix, span = match.group(1), match.group(2).strip()
+        # Already a clean, complete date - leave alone.
+        if re.match(
+            r'^(?:' + months + r')\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*20\d{2}$',
+            span, re.IGNORECASE,
+        ):
+            return match.group(0)
+        display = span if span else "(blank)"
+        return f"{prefix} [handwritten: {display}] " + match.group(0)[match.end(2) - match.start():]
+
+    text = labeled_date_pattern.sub(_replace_labeled_date, text)
+
     return text
 
 
@@ -294,10 +365,19 @@ def _extract_pdf(file_path: str) -> str:
             )
 
     text_parts = []
+    suspect_pages = []  # page indices whose text contains a garbled/handwritten-looking date
     try:
         for page_num in range(len(doc)):
             page = doc[page_num]
-            text_parts.append(page.get_text())
+            page_text = page.get_text()
+            text_parts.append(page_text)
+            # Reuse the handwritten-date detector: if fixing this page's text
+            # in isolation introduces a "[handwritten" marker, the page's
+            # embedded text (whatever produced it - a bad legacy OCR pass
+            # baked into the PDF, or a scan) likely garbled a hand-filled
+            # date. Flag it for a fresh, targeted OCR re-read below.
+            if "[handwritten" in _fix_handwritten_dates(page_text):
+                suspect_pages.append(page_num)
     except Exception as e:
         doc.close()
         raise DocumentIngestError(
@@ -305,6 +385,27 @@ def _extract_pdf(file_path: str) -> str:
             "The file may be partially corrupt.",
             kind="corrupt", detail=str(e),
         )
+
+    # Targeted re-OCR for pages with a suspected handwritten/garbled date.
+    # The PDF's own embedded text (often a low-quality legacy OCR pass) is
+    # frequently much worse than a fresh Tesseract pass at 300+ DPI on just
+    # that page. Rather than replacing the original text (which may still be
+    # needed verbatim elsewhere on the page), append the re-OCR reading as a
+    # clearly labeled cross-reference so the AI extraction step can use
+    # whichever reading is actually legible.
+    if suspect_pages and is_ocr_available():
+        for page_num in suspect_pages:
+            try:
+                reocr_text = _ocr_single_page(doc, page_num)
+            except Exception:
+                reocr_text = ""
+            if reocr_text.strip():
+                text_parts[page_num] += (
+                    f"\n[RE-OCR CROSS-CHECK of this page - a hand-written date "
+                    f"was hard to read in the primary text; here is a fresh, "
+                    f"higher-resolution OCR reading of the SAME page for "
+                    f"comparison]:\n{reocr_text.strip()}\n[END RE-OCR CROSS-CHECK]"
+                )
 
     page_count = len(doc)
     doc.close()
@@ -366,6 +467,141 @@ def is_ocr_available() -> bool:
     except ImportError:
         return False
     return bool(_find_tesseract())
+
+
+def _ocr_single_page(doc, page_num: int) -> str:
+    """
+    Re-OCR a single already-open PDF page at high resolution. Used as a
+    targeted cross-check when a page's embedded text contains a garbled
+    hand-written date - a fresh Tesseract pass is frequently far more
+    legible than whatever produced the PDF's existing text layer (often an
+    old/low-quality OCR pass baked in when the document was first scanned).
+    """
+    import pytesseract
+    from PIL import Image
+    import io
+
+    tess_path = _find_tesseract()
+    if not tess_path:
+        return ""
+    pytesseract.pytesseract.tesseract_cmd = tess_path
+
+    page = doc[page_num]
+    mat = pymupdf.Matrix(400 / 72, 400 / 72)
+    pix = page.get_pixmap(matrix=mat)
+    image = Image.open(io.BytesIO(pix.tobytes("png")))
+    return pytesseract.image_to_string(image, config="--psm 6")
+
+
+def find_snippet_screenshot(file_path: str, snippet: str, dpi: int = 250) -> Optional[bytes]:
+    """
+    Locate a short text snippet somewhere in a PDF and return a cropped
+    screenshot (PNG bytes) of the page region around it, for the human
+    verification UI - lets a user see exactly what the source document
+    actually says for a field flagged "NEEDS VERIFICATION" rather than
+    trusting a garbled OCR/AI reading blind.
+
+    Strategy: search every page's text for the best matching short anchor
+    (pymupdf's page.search_for() does substring matching on the page's own
+    text layer). If no page's text layer contains the snippet at all (e.g.
+    the source was a scanned image and the snippet came from an OCR pass
+    only), falls back to returning the first page's full image so the user
+    still has *something* to look at.
+
+    Returns None if the file can't be opened or has no pages, PNG bytes
+    otherwise. Never raises - screenshot generation is a UI convenience,
+    not a step whose failure should block the verification workflow.
+    """
+    try:
+        doc = pymupdf.open(file_path)
+    except Exception:
+        return None
+
+    if len(doc) == 0:
+        doc.close()
+        return None
+
+    # Try progressively shorter fragments of the snippet - a long garbled
+    # OCR string is unlikely to exact-match the page's text layer verbatim,
+    # but a short distinctive fragment of it (e.g. a nearby clean word) may.
+    #
+    # IMPORTANT: reject degenerate candidates. When a snippet is built by
+    # stripping "[handwritten: ...]"/"[handwritten-year: ...]" markers out
+    # of a short value (e.g. the recital fragment ", " left over from
+    # "[handwritten: April18], [handwritten-year: 2016]"), what's left can
+    # be just punctuation/whitespace or a single common character. Such a
+    # "candidate" would match dozens/hundreds of locations on a page
+    # (page.search_for(",") matches every comma) and produce a screenshot
+    # of a random, likely-wrong part of the page - worse than no match at
+    # all, since it looks authoritative but points at the wrong spot.
+    def _is_degenerate(candidate: str) -> bool:
+        alnum = re.sub(r'[^A-Za-z0-9]', '', candidate)
+        return len(alnum) < 3
+
+    candidates = []
+    cleaned = re.sub(r'\[handwritten[^\]]*\]', '', snippet or '').strip()
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip(' ,;:.')
+    if cleaned and not _is_degenerate(cleaned):
+        candidates.append(cleaned)
+    words = cleaned.split()
+    if len(words) > 6:
+        frag = " ".join(words[:6])
+        if not _is_degenerate(frag):
+            candidates.append(frag)
+    if len(words) > 3:
+        frag = " ".join(words[:3])
+        if not _is_degenerate(frag):
+            candidates.append(frag)
+
+    mat = pymupdf.Matrix(dpi / 72, dpi / 72)
+
+    for page_num in range(len(doc)):
+        page = doc[page_num]
+        rects = []
+        for candidate in candidates:
+            if not candidate:
+                continue
+            try:
+                found = page.search_for(candidate)
+            except Exception:
+                found = []
+            # A search hitting an implausibly large number of locations on
+            # one page is a sign the candidate is too generic to be a
+            # reliable anchor (even after the degenerate-string check above
+            # catches the most obvious cases) - skip it rather than crop
+            # around an essentially-random match.
+            if found and len(found) <= 5:
+                rects = found
+                break
+        if rects:
+            # Use the FULL PAGE WIDTH and a generous vertical window around
+            # the match, rather than a tight box around just the matched
+            # words. Older lease templates (like this one) sometimes lay
+            # text out with heavy justification/one-word-per-line spacing,
+            # so a tightly-padded crop can miss the very content the user
+            # needs to see (e.g. a hand-written date one line below/above
+            # the matched anchor phrase). A generous crop trades a bit of
+            # extra context for reliably including the relevant text.
+            rect = rects[0]
+            v_pad = 220
+            page_rect = page.rect
+            clip = pymupdf.Rect(
+                page_rect.x0,
+                max(page_rect.y0, rect.y0 - v_pad),
+                page_rect.x1,
+                min(page_rect.y1, rect.y1 + v_pad),
+            )
+            pix = page.get_pixmap(matrix=mat, clip=clip)
+            png_bytes = pix.tobytes("png")
+            doc.close()
+            return png_bytes
+
+    # Fallback: nothing matched on any page - return the first page as-is
+    # so the user still has something to look at.
+    pix = doc[0].get_pixmap(matrix=mat)
+    png_bytes = pix.tobytes("png")
+    doc.close()
+    return png_bytes
 
 
 def _ocr_pdf(file_path: str) -> str:

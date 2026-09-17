@@ -44,6 +44,9 @@ class AgreementType:
     # AI prompt configuration
     system_prompt: str = ""
     extraction_rules: str = ""
+    # Rules for the separate interpretation pass (Call 2). Kept apart from
+    # extraction_rules so the raw-extraction prompt (Call 1) stays small.
+    interpretation_rules: str = ""
     retry_hints: Dict[str, str] = field(default_factory=dict)
 
     # Field anchors for source verification (loaded from field_anchors.json)
@@ -98,6 +101,7 @@ class AgreementType:
             template_path=config.get("template_path", ""),
             system_prompt=config.get("system_prompt", ""),
             extraction_rules=config.get("extraction_rules", ""),
+            interpretation_rules=config.get("interpretation_rules", ""),
             retry_hints=config.get("retry_hints", {}),
             field_anchors=field_anchors,
         )
@@ -138,3 +142,21 @@ class AgreementType:
             if sub_config.get("skip_fields"):
                 result.update(sub_config["skip_fields"])
         return result
+
+    def get_display_labels(self) -> Dict[str, str]:
+        """
+        Build a {field_name: short human-readable label} map from the UI
+        preview `sections` config (e.g. "Amendment_Effective_Date" ->
+        "Latest Amendment Effective Date"). This is the short label meant
+        for display to a human - NOT `self.fields`, which maps field name to
+        the long AI-prompt description used for extraction instructions.
+        Falls back to the bare field name for any field not listed in any
+        section (rare - sections aims to cover every field, but isn't
+        guaranteed to for newly-added ones).
+        """
+        labels: Dict[str, str] = {}
+        for section in self.sections:
+            for field_entry in section.get("fields", []):
+                if isinstance(field_entry, (list, tuple)) and len(field_entry) >= 2:
+                    labels[field_entry[0]] = field_entry[1]
+        return labels
