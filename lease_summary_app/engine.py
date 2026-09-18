@@ -45,6 +45,7 @@ from lease_summary_tool import (
 
 from agreement_types import get_type, detect_agreement_type, list_types
 from agreement_types.base import AgreementType
+from multi_file import DATE_SEARCH_WINDOW_CHARS
 
 try:
     from errors import ProcessingError
@@ -806,6 +807,23 @@ def analyze_documents_parallel(
 # SOURCE VERIFICATION - AGREEMENT-TYPE DRIVEN
 # =============================================================================
 
+# Anchor patterns in field_anchors.json chain multiple ".*" wildcards
+# together (e.g. "tenant.*pay.*utility charges"). That's fine matched
+# against a short snippet, but against a full multi-hundred-thousand-
+# character document it causes catastrophic exponential regex backtracking
+# when no match exists nearby - this hung the server indefinitely on real
+# documents. Bounding every ".*" to a fixed max span makes matching
+# effectively linear and eliminates the blowup. 300 chars is generous
+# slack for "these words appear near each other in the same clause", which
+# is what these anchors are meant to catch anyway.
+_ANCHOR_WILDCARD_BOUND = 300
+
+
+def _bound_anchor_pattern(pattern: str) -> str:
+    """Replace unbounded '.*' in an anchor regex with a bounded quantifier."""
+    return pattern.replace('.*', f'.{{0,{_ANCHOR_WILDCARD_BOUND}}}')
+
+
 def _keyword_fallback_search(field_name: str, source_text: str, field_anchors: dict) -> Optional[str]:
     """
     Keyword anchor fallback search using agreement type's field_anchors.
@@ -816,10 +834,12 @@ def _keyword_fallback_search(field_name: str, source_text: str, field_anchors: d
 
     norm_source = _normalize_text(source_text)
 
-    # First pass: exact regex matching
+    # First pass: exact regex matching (wildcards bounded - see
+    # _bound_anchor_pattern - to avoid catastrophic backtracking against
+    # full-length document text).
     for anchor in anchors:
         try:
-            match = re.search(anchor, norm_source)
+            match = re.search(_bound_anchor_pattern(anchor), norm_source)
         except re.error:
             continue
         if match:
@@ -945,11 +965,21 @@ def verify_and_expand(
     """
     Verify extracted fields against source text using agreement type config.
     Returns (verified_data, report, flagged_fields, positions).
-    - positions: {field_name: (start, end)} character offsets into source_text
-      for fields where a source location was found. Used downstream to build
-      small ±N-char snippets for the interpretation pass (Call 2) instead of
-      re-sending the whole document. Fields with no resolvable location are
-      simply absent from this dict.
+    - positions: {field_name: (start, end)} character offsets into the
+      ORIGINAL source_text passed in (not any internally-windowed slice -
+      every windowed slice used below starts at index 0, so offsets found
+      within it are already valid absolute positions) for fields where a
+      source location was found. Used downstream to build small ±N-char
+      snippets for the interpretation pass (Call 2) instead of re-sending
+      the whole document. Fields with no resolvable location are simply
+      absent from this dict.
+    - Date_* and Amendment_Effective_Date fields are searched only within
+      the first DATE_SEARCH_WINDOW_CHARS characters (see multi_file.py) -
+      a document's own execution date always sits on its opening page(s),
+      never buried past a table of contents or deep in an amendment's
+      history recital, and searching the full document is both slower and
+      more prone to matching an unrelated date mentioned in passing later
+      in the text.
     """
     if anchors is None:
         anchors = {}
@@ -964,7 +994,24 @@ def verify_and_expand(
     short_fields = agreement.short_fields
     field_anchors = agreement.field_anchors
 
+    # A date field's real value always sits on a document's opening page(s)
+    # - never buried past a table of contents or deep in an amendment's
+    # history recital. Restricting the text searched for these fields to
+    # the first DATE_SEARCH_WINDOW_CHARS characters (rather than the full
+    # document) keeps matching fast and avoids a long recital of prior
+    # amendment dates confusing which date is THIS document's own. Every
+    # other field still searches the full document as before.
+    full_source_text = source_text
+    full_norm_source = norm_source
+
     for field_name, value in field_data.items():
+        if field_name.startswith("Date_") or field_name == "Amendment_Effective_Date":
+            source_text = full_source_text[:DATE_SEARCH_WINDOW_CHARS]
+            norm_source = _normalize_text(source_text)
+        else:
+            source_text = full_source_text
+            norm_source = full_norm_source
+
         if not value or not value.strip():
             verified_data[field_name] = value
             continue
@@ -1028,7 +1075,7 @@ def verify_and_expand(
                     anchor_relevant = False
                     for pattern in field_anchors[field_name]:
                         try:
-                            if re.search(pattern, norm_ext):
+                            if re.search(_bound_anchor_pattern(pattern), norm_ext):
                                 anchor_relevant = True
                                 break
                         except re.error:

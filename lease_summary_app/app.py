@@ -30,9 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Import the generic engine
 from engine import (
     process_document,
-    classify_documents_with_ai,
     analyze_with_ai,
-    analyze_combined_with_ai,
     analyze_documents_parallel,
     verify_and_expand,
     build_snippets,
@@ -60,6 +58,7 @@ from multi_file import (
     format_field_interpretation, format_field_raw,
     GUARANTY_FIELDS,
     DocumentInfo, FieldHistory,
+    parse_strict_date, is_confident_date, has_signature,
 )
 
 # Error types
@@ -814,6 +813,34 @@ def _run_multi_file_pipeline(
                 f"None of the {len(files)} files could be processed. {reasons}"
             )
 
+        # Phase 1B: Signature gate - a document with no signature block near
+        # its end is not an executed/finalized agreement and cannot be
+        # trusted for any field (a draft's "Effective Date" line may be
+        # blank, wrong, or superseded). Exclude such documents from the
+        # pipeline entirely rather than merely flagging them, per explicit
+        # instruction. has_signature() only looks at the last
+        # SIGNATURE_SEARCH_WINDOW_CHARS characters of the document, which
+        # both keeps this cheap and matches how these documents are
+        # actually laid out (signature block on the last page, or
+        # second-to-last if the last page is blank).
+        unsigned_docs = [d for d in doc_infos if not has_signature(d.text)]
+        if unsigned_docs:
+            doc_infos = [d for d in doc_infos if has_signature(d.text)]
+            for d in unsigned_docs:
+                log_code("W100", extra=f"{d.filename}: no signature block found - excluded as unfinalized", job_id=job_id)
+                print(f"    EXCLUDED (no signature found): {d.filename}")
+                skipped_files.append({
+                    "filename": d.filename,
+                    "reason": "No signature block found in the last part of the document - treated as an unsigned/unfinalized draft and excluded.",
+                    "code": "W100",
+                })
+
+        if not doc_infos:
+            reasons = "; ".join(f"{s['filename']}: {s['reason']}" for s in skipped_files[:5])
+            raise ProcessingError(
+                f"None of the {len(files)} files have a detectable signature block. {reasons}"
+            )
+
         job_meta["phases"]["ingest"] = f"done ({len(doc_infos)} files, {len(skipped_files)} skipped)"
         job_meta["skipped_files"] = skipped_files
         _save_meta(job_dir, job_meta)
@@ -831,128 +858,39 @@ def _run_multi_file_pipeline(
         job_meta["phases"]["pii"] = f"done ({total_pii} items across all docs)"
         _save_meta(job_dir, job_meta)
 
-        # Phase 2B: Classify documents. Identify the ORIGINAL LEASE and the
-        # LATEST amendment-like document - these two get read TOGETHER in
-        # Call 1 so the AI resolves current field values in context (an
-        # amendment's changes only make sense next to the lease). Everything
-        # else (earlier amendments, guaranty, etc.) is read in Call 2's
-        # parallel batch, purely for history/audit trail.
-        #
-        # Ordering is determined with a small AI call reading filenames (+ a
-        # short header excerpt) - filename-only regex ordinal matching (e.g.
-        # "SEVENTH AMENDMENT" -> 7) breaks down in real folders, because
-        # amendment documents routinely recite the lease's full amendment
-        # history in their own header ("...as amended by a First Amendment...
-        # a Second Amendment... a Third Amendment...") which can fool naive
-        # text matching, and naming conventions vary between landlords/firms.
-        # Falls back to the pure filename/doc-type heuristic (zero AI cost)
-        # if the AI call fails for any reason - never blocks the job on this.
+        # Phase 2B: Classify documents by TYPE ONLY (filename/header keyword
+        # matching - classify_document(), already reliable and zero AI
+        # cost). Deliberately NO pre-AI ordering/"latest" guessing here -
+        # that used to require reading filenames before any document was
+        # actually read, which produced unreliable chronological guesses
+        # (e.g. misordering an Omnibus Agreement as "oldest" when it was one
+        # of the newest documents). Every document is now read on its own,
+        # in one flat batch, and the three date facts that actually matter
+        # (commencement/effective/termination) are derived AFTER extraction
+        # from each document's own real, validated date - never guessed
+        # from filenames beforehand. See parse_strict_date()/is_confident_date()
+        # in multi_file.py for the single source of truth on what counts as
+        # a trustworthy date.
         job_meta["phases"]["classify"] = "running"
         _save_meta(job_dir, job_meta)
 
-        # sort_documents() at this point has no execution_date yet (that's
-        # only known after AI extraction) so it falls back to its
-        # amendment-number/doc-type heuristic - used as the fallback path.
-        pre_sorted = sort_documents(doc_infos)
-
-        _AMENDMENT_LIKE_TYPES = {
-            "amendment", "covid_amendment", "omnibus_agreement", "change_request",
-            "resolution", "settlement", "termination", "estoppel", "other",
-        }
-
-        lease_doc = None
-        latest_doc = None
-        ai_classify_used = False
-        try:
-            doc_types = {d.filename: d.doc_type for d in pre_sorted}
-            doc_headers = {d.filename: d.text[:500] for d in pre_sorted if d.text}
-            ai_result = classify_documents_with_ai(doc_types, doc_headers)
-
-            by_filename = {d.filename: d for d in pre_sorted}
-            if ai_result["lease_filename"]:
-                lease_doc = by_filename.get(ai_result["lease_filename"])
-            if ai_result["latest_filename"]:
-                latest_doc = by_filename.get(ai_result["latest_filename"])
-            # If the AI identified a lease but didn't clearly pick a distinct
-            # "latest", fall back to the last entry in its own chronological
-            # ordering (still AI-derived, just a safer default than nothing).
-            if lease_doc and not latest_doc and ai_result["ordered_amendments"]:
-                for fname in reversed(ai_result["ordered_amendments"]):
-                    if fname != lease_doc.filename:
-                        latest_doc = by_filename.get(fname)
-                        break
-            ai_classify_used = bool(lease_doc)
-        except Exception as e:
-            log_error("AI document-ordering call failed (non-fatal) - "
-                       "falling back to filename heuristic", job_id=job_id, exc=e)
-
-        if not ai_classify_used:
-            # Fallback: pure filename/doc-type heuristic, zero AI cost.
-            lease_doc = next((d for d in pre_sorted if d.doc_type == "lease"), None)
-            latest_doc = None
-            if lease_doc:
-                for d in reversed(pre_sorted):
-                    if d is lease_doc:
-                        continue
-                    if d.doc_type in _AMENDMENT_LIKE_TYPES:
-                        latest_doc = d
-                        break
-
-        remaining_docs = [d for d in pre_sorted if d is not lease_doc and d is not latest_doc]
+        lease_doc = next((d for d in doc_infos if d.doc_type == "lease"), None)
+        termination_doc = next((d for d in doc_infos if d.doc_type == "termination"), None)
 
         job_meta["phases"]["classify"] = (
             f"done (lease: {lease_doc.filename if lease_doc else 'none'}, "
-            f"latest: {latest_doc.filename if latest_doc else 'none'}, "
-            f"{len(remaining_docs)} other document(s), "
-            f"method: {'AI' if ai_classify_used else 'heuristic'})"
+            f"termination: {termination_doc.filename if termination_doc else 'none'}, "
+            f"{len(doc_infos)} document(s) total)"
         )
         _save_meta(job_dir, job_meta)
 
-        doc_anchors: Dict[str, dict] = {}
-
-        # Phase 3: AI raw extraction - PRIMARY (Call 1). Lease + latest
-        # amendment together in one call, so the AI resolves current values
-        # in context rather than reconciling separate reads afterward.
-        job_meta["phases"]["ai_primary"] = "running"
-        _save_meta(job_dir, job_meta)
-
-        if lease_doc and latest_doc:
-            lease_result, amendment_result = analyze_combined_with_ai(
-                agr, lease_doc.text, latest_doc.text,
-                latest_sub_type=latest_doc.doc_type, latest_label=latest_doc.filename,
-            )
-            (lease_doc.field_data, doc_anchors[lease_doc.filename],
-             lease_doc.normalized_dates, lease_doc.sections) = lease_result
-
-            amendment_field_data, amendment_anchors, amendment_dates, amendment_sections = amendment_result
-            for fname in agr.fields:
-                amendment_field_data.setdefault(fname, "See Original Lease.")
-            latest_doc.field_data = amendment_field_data
-            latest_doc.normalized_dates = amendment_dates
-            latest_doc.sections = amendment_sections
-            doc_anchors[latest_doc.filename] = amendment_anchors
-
-            addressed = sum(1 for v in amendment_field_data.values() if v and v != "See Original Lease.")
-            job_meta["phases"]["ai_primary"] = (
-                f"done (lease: {sum(1 for v in lease_doc.field_data.values() if v)} fields, "
-                f"{latest_doc.filename}: {addressed} field(s) addressed)"
-            )
-        elif lease_doc:
-            field_data, anchors, dates, sections = analyze_with_ai(agr, lease_doc.text, sub_type=lease_doc.doc_type)
-            lease_doc.field_data, lease_doc.normalized_dates, lease_doc.sections = field_data, dates, sections
-            doc_anchors[lease_doc.filename] = anchors
-            job_meta["phases"]["ai_primary"] = f"done (lease: {sum(1 for v in field_data.values() if v)} fields)"
-        else:
-            # No original lease found in this folder - fall back to treating
-            # every document (including whatever would've been "latest") as
-            # part of the batch below.
-            job_meta["phases"]["ai_primary"] = "skipped (no lease document found)"
-        _save_meta(job_dir, job_meta)
-
-        # Phase 3B: AI raw extraction - BATCH (Call 2). Remaining documents
-        # run concurrently, each scoped to only the fields that document type
-        # can plausibly address, and allowed to omit fields it doesn't touch.
-        job_meta["phases"]["ai_batch"] = "running"
+        # Phase 3: AI raw extraction - every document read independently, in
+        # one flat parallel batch. The lease gets the FULL field list
+        # (require_all=True); every other document type is scoped down to
+        # only the fields it can plausibly address (guaranty fields for a
+        # guaranty doc, everything except lease-only fields for amendments/
+        # addenda/omnibus/etc.) and allowed to omit fields it doesn't touch.
+        job_meta["phases"]["ai_extract"] = "running"
         _save_meta(job_dir, job_meta)
 
         lease_only_fields = agr.get_full_lease_only_fields()
@@ -960,35 +898,39 @@ def _run_multi_file_pipeline(
         guaranty_field_scope = {k: v for k, v in agr.fields.items() if k in GUARANTY_FIELDS}
 
         doc_jobs = []
-        for d in remaining_docs:
-            scope = guaranty_field_scope if d.doc_type == "guaranty" else amendment_field_scope
+        for d in doc_infos:
+            if d.doc_type == "lease":
+                scope, require_all = dict(agr.fields), True
+            elif d.doc_type == "guaranty":
+                scope, require_all = guaranty_field_scope, False
+            else:
+                scope, require_all = amendment_field_scope, False
             doc_jobs.append({
                 "key": d.filename, "text": d.text, "sub_type": d.doc_type,
-                "only_fields": scope, "require_all": False,
+                "only_fields": scope, "require_all": require_all,
             })
 
-        if doc_jobs:
-            def _on_batch_progress(done, total):
-                job_meta["phases"]["ai_batch"] = f"running ({done}/{total} documents)"
-                _save_meta(job_dir, job_meta)
+        doc_anchors: Dict[str, dict] = {}
 
-            batch_results = analyze_documents_parallel(agr, doc_jobs, on_progress=_on_batch_progress)
+        def _on_batch_progress(done, total):
+            job_meta["phases"]["ai_extract"] = f"running ({done}/{total} documents)"
+            _save_meta(job_dir, job_meta)
 
-            for d in remaining_docs:
-                field_data, anchors, dates, sections = batch_results.get(d.filename, ({}, {}, {}, {}))
-                for fname in agr.fields:
-                    field_data.setdefault(fname, "See Original Lease.")
-                d.field_data = field_data
-                d.normalized_dates = dates
-                d.sections = sections
-                doc_anchors[d.filename] = anchors
+        batch_results = analyze_documents_parallel(agr, doc_jobs, on_progress=_on_batch_progress)
 
-            job_meta["phases"]["ai_batch"] = f"done ({len(remaining_docs)} document(s))"
-        else:
-            job_meta["phases"]["ai_batch"] = "done (no other documents)"
+        for d in doc_infos:
+            field_data, anchors, dates, sections = batch_results.get(d.filename, ({}, {}, {}, {}))
+            for fname in agr.fields:
+                field_data.setdefault(fname, "See Original Lease." if d is not lease_doc else "None.")
+            d.field_data = field_data
+            d.normalized_dates = dates
+            d.sections = sections
+            doc_anchors[d.filename] = anchors
+
+        job_meta["phases"]["ai_extract"] = f"done ({len(doc_infos)} document(s))"
         _save_meta(job_dir, job_meta)
 
-        # Phase 3C: Source verification (pure code, no AI) - run for every
+        # Phase 3B: Source verification (pure code, no AI) - run for every
         # document, resolving each field's source position so Call 3 can
         # build accurate snippets from wherever that field actually came from.
         job_meta["phases"]["verify"] = "running"
@@ -998,7 +940,7 @@ def _run_multi_file_pipeline(
         doc_positions: Dict[str, dict] = {}
         combined_flagged: List[str] = []
 
-        for d in pre_sorted:
+        for d in doc_infos:
             verified, _report, flagged, positions = verify_and_expand(
                 agr, d.field_data, d.text, doc_anchors.get(d.filename, {})
             )
@@ -1007,93 +949,147 @@ def _run_multi_file_pipeline(
             doc_positions[d.filename] = positions
             combined_flagged.extend(flagged)
 
-        job_meta["phases"]["verify"] = f"done ({len(pre_sorted)} document(s))"
+        job_meta["phases"]["verify"] = f"done ({len(doc_infos)} document(s))"
         _save_meta(job_dir, job_meta)
 
-        # Phase 4: Re-sort with real execution dates (now known from AI
-        # extraction) and merge - latest value per field wins, earlier values
-        # become history.
+        # Phase 3C: Determine the three date facts that actually matter, by
+        # SIMPLE RULE from each document's own real, VALIDATED date - never
+        # by AI-guessed filename ordering, and never by a fragile
+        # single-format date-string sort. Each fact is pinned to a specific
+        # document identity, matching merge_fields()'s pinning:
+        #   - Commencement date: the LEASE document's Date_Lease (fallback
+        #     Date_Commencment).
+        #   - Termination date: the TERMINATION document's Date_Termination,
+        #     if a termination notice exists.
+        #   - Effective date: among amendment/covid_amendment/omnibus_agreement
+        #     documents, whichever has the LATEST validated
+        #     Amendment_Effective_Date. A document whose date doesn't parse
+        #     as a real date (garbled OCR, blank template, etc.) is simply
+        #     not eligible to win this comparison - it becomes a
+        #     verification item below instead of silently winning by being
+        #     last in some list.
+        job_meta["phases"]["dates"] = "running"
+        _save_meta(job_dir, job_meta)
+
+        for d in doc_infos:
+            if d.doc_type == "lease":
+                raw = d.field_data.get("Date_Lease", "") or d.field_data.get("Date_Commencment", "")
+            elif d.doc_type == "termination":
+                raw = d.field_data.get("Date_Termination", "")
+            elif d.doc_type in ("amendment", "covid_amendment", "omnibus_agreement"):
+                raw = d.field_data.get("Amendment_Effective_Date", "")
+            else:
+                raw = ""
+            d.execution_date_raw = raw
+            parsed = parse_strict_date(raw)
+            d.execution_date = parsed.strftime("%m/%d/%Y") if parsed else None
+
+        effective_date_source = None
+        best_date = None
+        for d in doc_infos:
+            if d.doc_type not in ("amendment", "covid_amendment", "omnibus_agreement"):
+                continue
+            parsed = parse_strict_date(d.execution_date_raw)
+            if parsed and (best_date is None or parsed > best_date):
+                best_date = parsed
+                effective_date_source = d
+
+        job_meta["phases"]["dates"] = (
+            f"done (commencement: {lease_doc.filename if lease_doc else 'none'}, "
+            f"effective: {effective_date_source.filename if effective_date_source else 'none'}, "
+            f"termination: {termination_doc.filename if termination_doc else 'none'})"
+        )
+        _save_meta(job_dir, job_meta)
+
+        # Phase 4: Merge - Date_Lease/Date_Commencment pinned to the lease
+        # doc, Date_Termination pinned to the termination doc,
+        # Amendment_Effective_Date pinned to effective_date_source (all
+        # identity-based, not sort-order-based - see merge_fields()).
+        # Every other field still uses ordinary latest-wins merge, sorted
+        # for history-display purposes only (sort_documents() no longer
+        # decides anything about the three pinned date facts above).
         job_meta["phases"]["merge"] = "running"
         _save_meta(job_dir, job_meta)
 
-        for d in pre_sorted:
-            # A document's own execution/effective date comes from a
-            # DIFFERENT field depending on its type:
-            # - the original lease: Date_Lease (its own effective date) or
-            #   Date_Commencment as a fallback.
-            # - an amendment/addendum/etc: Amendment_Effective_Date - its
-            #   OWN "made and dated ___" date, never Date_Lease/
-            #   Date_Commencment. Amendments routinely recite the entire
-            #   prior amendment history in their recital paragraph (e.g.
-            #   "Under the lease dated July 30, 2007 as amended by a First
-            #   Amendment... a Second Amendment..."), and the AI may return
-            #   the ORIGINAL lease's date for Date_Lease when reading an
-            #   amendment - that date belongs to the lease, not to this
-            #   amendment, and must never be used as this document's own
-            #   execution_date (it would make every amendment sort as if it
-            #   were signed the same day as the original lease).
-            if d.doc_type in ("amendment", "covid_amendment"):
-                exec_date = d.normalized_dates.get("Amendment_Effective_Date", "")
-                exec_date_raw = d.field_data.get("Amendment_Effective_Date", "")
-                # Fall back to the old fields if the amendment-specific one
-                # wasn't populated for some reason (e.g. an older/odd
-                # amendment format the model couldn't map to "Effective
-                # Date" wording) - better than no date at all.
-                if not exec_date:
-                    exec_date = d.normalized_dates.get("Date_Lease", "") or d.normalized_dates.get("Date_Commencment", "")
-                    exec_date_raw = exec_date_raw or d.field_data.get("Date_Lease", "")
-            else:
-                exec_date = d.normalized_dates.get("Date_Lease", "") or d.normalized_dates.get("Date_Commencment", "")
-                exec_date_raw = d.field_data.get("Date_Lease", "")
-            if exec_date and exec_date.upper() not in ("TBD", "NEEDS VERIFICATION"):
-                d.execution_date = exec_date
-            d.execution_date_raw = exec_date_raw
-
         sorted_docs = sort_documents(doc_infos)
-        merged_fields = merge_fields(sorted_docs)
+        merged_fields = merge_fields(sorted_docs, effective_date_source=effective_date_source)
         job_meta["phases"]["merge"] = f"done ({len(merged_fields)} fields merged)"
         _save_meta(job_dir, job_meta)
 
-        # Phase 4A2: Human verification pause. Any field whose current value
-        # came from a source region containing a hand-written date/number -
-        # whether the AI resolved it confidently or not - is surfaced here
-        # for the user to confirm or correct, before AI spends a call
-        # interpreting it and before the report is generated. Confident-
-        # looking AI guesses can still be wrong, so this isn't limited to
-        # outright "NEEDS VERIFICATION" failures.
+        # Phase 4B: Human verification - ONE combined pass presenting EVERY
+        # flagged item at once (not a sequence of separate pauses). Two
+        # kinds of items get flagged, combined into a single list:
+        #   1. The three priority date facts above, if the document that
+        #      should hold that fact has no validated date at all (e.g. the
+        #      effective-date search above found zero eligible documents
+        #      with a real parsed date - every amendment's date was
+        #      garbled/blank) - the user is asked to supply it directly.
+        #   2. Any other field whose value came from a source region
+        #      containing hand-written text (see
+        #      _detect_handwriting_touched_fields) - confident-looking AI
+        #      guesses can still be wrong, so this isn't limited to outright
+        #      "NEEDS VERIFICATION" failures.
+        job_meta["phases"]["verify_human"] = "running"
+        _save_meta(job_dir, job_meta)
+
         touched_for_verification: Dict[str, str] = {}
         touched_search_snippets: Dict[str, str] = {}
+        touched_source_docs: Dict[str, "DocumentInfo"] = {}
+
+        def _flag_field(fname: str, value: str, source_doc: "DocumentInfo"):
+            touched_for_verification[fname] = value
+            touched_source_docs[fname] = source_doc
+
+        # 1. Priority date facts with no eligible/validated document.
+        if lease_doc and not parse_strict_date(lease_doc.execution_date_raw):
+            _flag_field("Date_Lease", lease_doc.execution_date_raw or "None.", lease_doc)
+        if termination_doc and not parse_strict_date(termination_doc.execution_date_raw):
+            _flag_field("Date_Termination", termination_doc.execution_date_raw or "None.", termination_doc)
+        if effective_date_source is None:
+            # No amendment/covid_amendment/omnibus_agreement document had a
+            # validated date at all - ask about whichever such document
+            # exists and looks most likely to be the latest one (by
+            # amendment number, since no date can be trusted yet); if
+            # multiple exist the user can correct any of them and the job
+            # will re-resolve the actual latest date from what they enter.
+            candidates = [d for d in doc_infos if d.doc_type in ("amendment", "covid_amendment", "omnibus_agreement")]
+            candidates.sort(key=lambda d: d.amendment_number or 0, reverse=True)
+            for d in candidates:
+                raw = d.field_data.get("Amendment_Effective_Date", "")
+                if raw and raw.strip().lower() not in ("none.", "none", "see original lease.", ""):
+                    _flag_field("Amendment_Effective_Date", raw, d)
+                    break
+
+        # 2. Any other field whose value touches hand-written source text.
         for fname, hist in merged_fields.items():
+            if fname in touched_for_verification:
+                continue
             source_text = doc_texts.get(hist.current_source, "")
             source_positions = doc_positions.get(hist.current_source, {})
             hit = _detect_handwriting_touched_fields(
                 source_text, source_positions, {fname: hist.current_value},
             )
             if hit:
-                touched_for_verification[fname] = hit[fname]
-                # Use the ACTUAL source text at this field's known position
-                # as the screenshot search anchor, not the AI's "verbatim"
-                # value - the AI occasionally paraphrases slightly even when
-                # instructed not to, which makes page.search_for() match
-                # nothing, or match an unrelated occurrence of a short,
-                # generic fragment elsewhere on the page. Slicing directly
-                # from the document's own text at the already-computed
-                # position is guaranteed to be a literal substring.
-                pos = source_positions.get(fname)
-                if pos and source_text:
-                    touched_search_snippets[fname] = source_text[pos[0]:pos[1]]
+                source_doc = next((d for d in doc_infos if d.filename == hist.current_source), None)
+                _flag_field(fname, hit[fname], source_doc)
+
+        for fname, source_doc in touched_source_docs.items():
+            if not source_doc:
+                continue
+            pos = doc_positions.get(source_doc.filename, {}).get(fname)
+            if pos and source_doc.text:
+                touched_search_snippets[fname] = source_doc.text[pos[0]:pos[1]]
 
         if touched_for_verification:
-            filename_to_path = {d.filename: d.filepath for d in sorted_docs}
             source_lookup = {
-                fname: filename_to_path.get(merged_fields[fname].current_source, "")
+                fname: (touched_source_docs[fname].filepath if touched_source_docs.get(fname) else "")
                 for fname in touched_for_verification
             }
             verification_items = _build_verification_items(
                 job_id, job_dir, touched_for_verification, agr.get_display_labels(), source_lookup,
                 search_snippets=touched_search_snippets,
             )
-            job_meta["phases"]["verify_human"] = f"waiting ({len(verification_items)} field(s))"
+            job_meta["phases"]["verify_human"] = f"waiting ({len(verification_items)} item(s))"
             job_meta["verification_items"] = verification_items
             job_meta["status"] = "needs_verification"
             _save_meta(job_dir, job_meta)
@@ -1101,20 +1097,51 @@ def _run_multi_file_pipeline(
             corrections = _wait_for_corrections(job_id, job_dir)
 
             job_meta = _load_meta(job_dir) or job_meta
+            human_corrected_fields: set = set()
             for fname, corrected_value in corrections.items():
-                if fname in merged_fields and corrected_value and corrected_value.strip():
-                    merged_fields[fname].current_value = corrected_value.strip()
-                    merged_fields[fname].current_interpretation = corrected_value.strip()
+                if not corrected_value or not corrected_value.strip():
+                    continue
+                corrected_value = corrected_value.strip()
+                source_doc = touched_source_docs.get(fname)
+                if fname in merged_fields:
+                    merged_fields[fname].current_value = corrected_value
+                    merged_fields[fname].current_interpretation = corrected_value
                     merged_fields[fname].current_source = f"{merged_fields[fname].current_source} (human-verified)"
+                human_corrected_fields.add(fname)
+                # If this correction was one of the three priority date
+                # facts, also update the underlying document + the
+                # effective_date_source/termination/lease bookkeeping so
+                # downstream normalized-date badges/history stay consistent.
+                if source_doc is not None:
+                    source_doc.field_data[fname] = corrected_value
+                    if fname in ("Date_Lease", "Date_Termination", "Amendment_Effective_Date"):
+                        source_doc.execution_date_raw = corrected_value
+                        parsed = parse_strict_date(corrected_value)
+                        source_doc.execution_date = parsed.strftime("%m/%d/%Y") if parsed else None
+                        source_doc.normalized_dates[fname] = source_doc.execution_date or ""
+                        if fname == "Amendment_Effective_Date" and effective_date_source is None:
+                            effective_date_source = source_doc
+
+            # A field the human just confirmed/corrected must never be
+            # silently overwritten by the completeness-driven AI retry pass
+            # below (Phase 4C) - that pass re-reads raw source text and
+            # would otherwise reintroduce the exact same garbled/uncertain
+            # value the human was just asked to fix. Drop these fields from
+            # the flagged list that feeds check_completeness()'s
+            # needs_retry so they're treated as already resolved.
+            combined_flagged = [f for f in combined_flagged if f not in human_corrected_fields]
 
             still_flagged = sum(
                 1 for fname in touched_for_verification
-                if needs_verification(merged_fields[fname].current_value)
+                if needs_verification(merged_fields.get(fname).current_value if fname in merged_fields else "")
             )
             job_meta["phases"]["verify_human"] = (
                 f"done ({len(corrections)} corrected/confirmed, {still_flagged} left as NEEDS VERIFICATION)"
             )
             job_meta["status"] = "processing"
+            _save_meta(job_dir, job_meta)
+        else:
+            job_meta["phases"]["verify_human"] = "done (nothing flagged)"
             _save_meta(job_dir, job_meta)
 
         # Phase 4B: AI interpretation (Call 3) - ONE call for the whole job,
@@ -1171,7 +1198,7 @@ def _run_multi_file_pipeline(
         if completeness["needs_retry"]:
             job_meta["phases"]["retry"] = "running"
             _save_meta(job_dir, job_meta)
-            retry_source_doc = lease_doc or (pre_sorted[0] if pre_sorted else None)
+            retry_source_doc = lease_doc or (sorted_docs[0] if sorted_docs else None)
             if retry_source_doc:
                 recovered_field_data, retry_count = ai_retry_fields(
                     agr, dict(current_values), retry_source_doc.text, completeness["needs_retry"]
@@ -1191,53 +1218,20 @@ def _run_multi_file_pipeline(
                         # No fresh source positions for newly-recovered fields -
                         # interpret_fields() falls back gracefully to raw text
                         # alone when no snippet is available for a field.
+                        # Note: any hand-written/garbled text reintroduced by
+                        # ai_retry_fields() here (which reads raw source text
+                        # directly, with no handwriting-resolution guidance
+                        # of its own) is caught downstream by
+                        # format_field_interpretation()'s needs_verification
+                        # check and rendered as "NEEDS VERIFICATION" in the
+                        # final report - it does not get a second live
+                        # verification pause (the single combined pause
+                        # earlier in the pipeline is the only one).
                         extra_interp = interpret_fields(agr, retried_fields, {})
                         for fname, interp in extra_interp.items():
                             if fname in merged_fields:
                                 merged_fields[fname].current_interpretation = interp
                         call3_interpretations.update(extra_interp)
-
-                    # Second human verification pause: ai_retry_fields()
-                    # reads raw source text directly and has no
-                    # handwriting-resolution guidance of its own, so a field
-                    # recovered by retry can reintroduce a hand-written/
-                    # garbled value that slipped past the first verification
-                    # pause (which only ran on Call 1/Call 2's results).
-                    retry_touched = _detect_handwriting_touched_fields(
-                        retry_source_doc.text, doc_positions.get(retry_source_doc.filename, {}),
-                        retried_fields,
-                    )
-                    if retry_touched:
-                        source_lookup = {fname: retry_source_doc.filepath for fname in retry_touched}
-                        verification_items = _build_verification_items(
-                            job_id, job_dir, retry_touched, agr.get_display_labels(), source_lookup,
-                        )
-                        job_meta["phases"]["verify_human"] = f"waiting ({len(verification_items)} field(s), post-retry)"
-                        job_meta["verification_items"] = verification_items
-                        job_meta["status"] = "needs_verification"
-                        _save_meta(job_dir, job_meta)
-
-                        corrections = _wait_for_corrections(job_id, job_dir)
-
-                        job_meta = _load_meta(job_dir) or job_meta
-                        for fname, corrected_value in corrections.items():
-                            if fname in merged_fields and corrected_value and corrected_value.strip():
-                                merged_fields[fname].current_value = corrected_value.strip()
-                                merged_fields[fname].current_interpretation = corrected_value.strip()
-                                merged_fields[fname].current_source = (
-                                    f"{merged_fields[fname].current_source} (human-verified)"
-                                )
-                                call3_interpretations[fname] = corrected_value.strip()
-
-                        still_flagged = sum(
-                            1 for fname in retry_touched
-                            if needs_verification(merged_fields[fname].current_value)
-                        )
-                        job_meta["phases"]["verify_human"] = (
-                            f"done ({len(corrections)} corrected/confirmed, {still_flagged} left as NEEDS VERIFICATION)"
-                        )
-                        job_meta["status"] = "processing"
-                        _save_meta(job_dir, job_meta)
             else:
                 job_meta["phases"]["retry"] = "skipped (no document available)"
             _save_meta(job_dir, job_meta)

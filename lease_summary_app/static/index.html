@@ -687,18 +687,22 @@ async function startProcessing() {
 // Any phase the backend reports that isn't in this map still renders,
 // using its raw key as the label, so nothing gets silently hidden.
 // Single-file jobs report: ingest, pii, ai, verify, interpret, retry, qa, generate.
-// Multi-file jobs report: ingest, pii, classify, ai_primary, ai_batch, verify,
-// merge, interpret, retry, qa, generate (classify/ai_primary/ai_batch/merge
-// replace the single "ai" step since multi-file reads the lease + latest
-// amendment together, then batches the rest in parallel, then merges history).
+// Multi-file jobs report: ingest, pii, classify, ai_extract, verify, dates,
+// merge, verify_human, interpret, retry, qa, generate. Every document is now
+// read independently (ai_extract) - there's no more AI-guessed "latest
+// document" ordering step; the three key dates (commencement/effective/
+// termination) are determined by simple rule from each document's own
+// validated date (the "dates" phase), and any date/field that can't be
+// confidently read is combined into ONE human-verification pass
+// (verify_human) presenting every flagged item at once.
 const PHASE_LABELS = {
   ingest: 'Ingesting document(s)',
   pii: 'Scanning for PII',
-  classify: 'Identifying lease and latest amendment',
+  classify: 'Identifying lease and termination documents',
   ai: 'AI raw extraction',
-  ai_primary: 'AI raw extraction — lease + latest amendment',
-  ai_batch: 'AI raw extraction — other documents (parallel)',
+  ai_extract: 'AI raw extraction (all documents)',
   verify: 'Verifying against source text',
+  dates: 'Determining commencement/effective/termination dates',
   verify_human: 'Human verification',
   merge: 'Merging document history',
   interpret: 'AI interpretation',
@@ -707,8 +711,8 @@ const PHASE_LABELS = {
   generate: 'Generating summary document',
 };
 const PHASE_ORDER = [
-  'ingest', 'pii', 'classify', 'ai', 'ai_primary', 'ai_batch',
-  'verify', 'verify_human', 'merge', 'interpret', 'retry', 'qa', 'generate',
+  'ingest', 'pii', 'classify', 'ai', 'ai_extract',
+  'verify', 'dates', 'merge', 'verify_human', 'interpret', 'retry', 'qa', 'generate',
 ];
 
 function renderPhases(phases) {
