@@ -636,7 +636,8 @@ async function startProcessing() {
     // Multi-file folder processing
     const sourceFolder = document.getElementById('source-folder').value.trim();
     document.getElementById('processing-file').textContent = `Folder: ${sourceFolder}`;
-    document.getElementById('processing-type').innerHTML = `<span class="type-badge lease">Multi-File Summary</span>`;
+    const multiTypeLabel = selectedType === 'auto' ? 'Multi-File Summary (Auto-Detecting...)' : `Multi-File Summary (${agreementTypes[selectedType]?.name || selectedType})`;
+    document.getElementById('processing-type').innerHTML = `<span class="type-badge ${selectedType === 'auto' ? 'auto' : 'lease'}">${multiTypeLabel}</span>`;
 
     const formData = new FormData();
     formData.append('folder_path', sourceFolder);

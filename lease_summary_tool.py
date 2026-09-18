@@ -1827,15 +1827,23 @@ def _replace_in_paragraph(para, field_data: dict):
                 run.text = ""
 
 
-def populate_template(field_data: dict, output_path: str) -> str:
-    """Load the DOCX template, replace all placeholders, and save."""
-    if not os.path.exists(TEMPLATE_PATH):
+def populate_template(field_data: dict, output_path: str, template_path: str = None) -> str:
+    """
+    Load a DOCX template, replace all placeholders, and save.
+
+    template_path: if given, use this template instead of the default
+    lease template (TEMPLATE_PATH) - lets each agreement type supply its
+    own DOCX template (e.g. a purchase & sale agreement summary form)
+    while reusing the same placeholder-replacement logic.
+    """
+    resolved_path = template_path or TEMPLATE_PATH
+    if not os.path.exists(resolved_path):
         raise FileNotFoundError(
-            f"Template not found at: {TEMPLATE_PATH}\n"
-            "Please ensure the SeedJura_Lease_Summary_FORM.docx is available."
+            f"Template not found at: {resolved_path}\n"
+            "Please ensure the summary template DOCX is available."
         )
 
-    doc = Document(TEMPLATE_PATH)
+    doc = Document(resolved_path)
 
     # Replace placeholders in paragraphs
     for para in doc.paragraphs:

@@ -20,6 +20,18 @@
     ]
   },
 
+  "date_roles": {
+    "origin_types": ["lease"],
+    "origin_date_field": "Date_Lease",
+    "origin_date_fallback_field": "Date_Commencment",
+    "origin_only_fields": ["Date_Lease", "LeaseAgr_Name", "Date_Commencment"],
+    "termination_types": ["termination"],
+    "termination_date_field": "Date_Termination",
+    "termination_only_fields": ["Date_Termination"],
+    "effective_types": ["amendment", "covid_amendment", "omnibus_agreement"],
+    "effective_date_field": "Amendment_Effective_Date"
+  },
+
   "sub_types": {
     "amendment": {
       "filename_signals": ["amendment", "amend"],

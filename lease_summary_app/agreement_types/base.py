@@ -38,6 +38,16 @@ class AgreementType:
     # Sub-type detection (e.g., amendment vs full lease)
     sub_types: Dict[str, dict] = field(default_factory=dict)
 
+    # Multi-file pipeline date-pinning config - which doc_type(s) count as
+    # the "origin" document (e.g. the original lease, or the original PSA),
+    # which count as a termination notice, and which count as amendment-like
+    # documents competing for "the effective date" - and which field on
+    # each holds the relevant date. See multi_file.py's classify_document()/
+    # date-role helpers and app.py's Phase 3C for how this drives the
+    # commencement/termination/effective date determination generically
+    # across agreement types instead of hardcoding lease field names.
+    date_roles: Dict[str, object] = field(default_factory=dict)
+
     # Template path
     template_path: str = ""
 
@@ -98,6 +108,7 @@ class AgreementType:
             expected_fields=expected_fields,
             doc_type_signals=config.get("doc_type_signals", {}),
             sub_types=config.get("sub_types", {}),
+            date_roles=config.get("date_roles", {}),
             template_path=config.get("template_path", ""),
             system_prompt=config.get("system_prompt", ""),
             extraction_rules=config.get("extraction_rules", ""),

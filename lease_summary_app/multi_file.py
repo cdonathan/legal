@@ -19,7 +19,7 @@ import re
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Set
 from dataclasses import dataclass, field
 
 
@@ -226,13 +226,93 @@ def scan_folder(folder_path: str) -> List[str]:
     return sorted(files)
 
 
-def classify_document(filename: str, text_header: str = "") -> Tuple[str, Optional[int]]:
+_ORDINAL_MAP = {
+    "FIRST": 1, "SECOND": 2, "THIRD": 3, "FOURTH": 4, "FIFTH": 5,
+    "SIXTH": 6, "SEVENTH": 7, "EIGHTH": 8, "NINTH": 9, "TENTH": 10,
+    "ELEVENTH": 11, "TWELFTH": 12,
+}
+
+
+def _extract_amendment_number(fname_upper: str, header_upper: str) -> Optional[int]:
+    """
+    Shared ordinal/numbered-amendment extraction used by both the lease's
+    hardcoded classifier and the generic one. Filename is checked before
+    header text for the same reason noted in classify_document(): amendment
+    documents routinely recite the full amendment history in their opening
+    recital, so an ordinal found in the header isn't necessarily THIS
+    document's own number.
+    """
+    for ordinal, num in _ORDINAL_MAP.items():
+        if ordinal + " AMENDMENT" in fname_upper:
+            return num
+    match = re.search(r'AMENDMENT\s*(?:NO\.?|#)\s*(\d+)', fname_upper)
+    if match:
+        return int(match.group(1))
+    for ordinal, num in _ORDINAL_MAP.items():
+        if ordinal + " AMENDMENT" in header_upper:
+            return num
+    match = re.search(r'AMENDMENT\s*(?:NO\.?|#)\s*(\d+)', header_upper)
+    if match:
+        return int(match.group(1))
+    return None
+
+
+def _classify_document_generic(fname_upper: str, header_upper: str, agreement) -> Tuple[str, Optional[int]]:
+    """
+    Generic document classification for any non-lease agreement type,
+    driven entirely by that type's own config.json (sub_types' filename_
+    signals/header_signals, and doc_type_signals for recognizing the
+    original/"origin" document itself) - no lease-specific keywords.
+
+    sub_types are checked in the order they appear in config.json; the
+    first match wins. If nothing matches, falls back to the agreement's
+    own type_id if the document looks like the origin document (matches
+    doc_type_signals), otherwise "other".
+    """
+    fname_lower = fname_upper.lower()
+    header_lower = header_upper.lower()
+    amendment_num = _extract_amendment_number(fname_upper, header_upper)
+
+    for sub_id, sub_config in agreement.sub_types.items():
+        for signal in sub_config.get("filename_signals", []):
+            if signal.lower() in fname_lower:
+                return sub_id, amendment_num
+        for signal in sub_config.get("header_signals", []):
+            if signal.lower() in header_lower:
+                return sub_id, amendment_num
+
+    signals = agreement.doc_type_signals or {}
+    for signal in signals.get("filename", []):
+        if signal.lower() in fname_lower:
+            return agreement.type_id, amendment_num
+    for signal in signals.get("header", []):
+        if signal.lower() in header_lower:
+            return agreement.type_id, amendment_num
+
+    return "other", amendment_num
+
+
+def classify_document(filename: str, text_header: str = "", agreement=None) -> Tuple[str, Optional[int]]:
     """
     Classify a document by type and extract amendment number if applicable.
     Returns (doc_type, amendment_number).
+
+    agreement: optional AgreementType. When given and it is NOT the lease
+    type, classification is driven generically from the agreement's own
+    config (sub_types' filename/header signals, plus date_roles for which
+    doc_type counts as the "origin" document) instead of the lease-specific
+    keyword ladder below. This keeps the proven, well-tuned lease behavior
+    completely unchanged (the branch below still runs exactly as before
+    whenever agreement is None or is the lease type) while letting other
+    agreement types (e.g. PSA) classify documents using their own
+    terminology without being forced through lease-specific keywords like
+    "OMNIBUS" or "ESTOPPEL".
     """
     fname = filename.upper()
     header = text_header[:2000].upper() if text_header else ""
+
+    if agreement is not None and agreement.type_id != "lease":
+        return _classify_document_generic(fname, header, agreement)
 
     # Amendment number extraction.
     #
@@ -320,22 +400,66 @@ def classify_document(filename: str, text_header: str = "") -> Tuple[str, Option
     return doc_type, amendment_num
 
 
-def sort_documents(docs: List[DocumentInfo]) -> List[DocumentInfo]:
+# Lease-specific display-ordering priority (lower sorts earlier). Used as
+# the default in sort_documents() for backward compatibility; any other
+# agreement type gets a simpler generic ordering instead (see
+# _generic_type_priority below) unless it's the lease type.
+_LEASE_TYPE_PRIORITY = {
+    "lease": 0,
+    "guaranty": 0,
+    "amendment": 1,
+    "covid_amendment": 2,
+    "omnibus_agreement": 2,
+    "change_request": 3,
+    "resolution": 3,
+    "settlement": 4,
+    "termination": 5,
+    "estoppel": 6,
+    "other": 7,
+}
+
+
+def _generic_type_priority(doc_type: str, origin_types: Set[str]) -> int:
+    """
+    Generic display-ordering priority for any non-lease agreement type:
+    the origin document sorts first, "termination" sorts last, everything
+    else (amendments, etc.) sorts in between. Good enough for display
+    purposes without needing a hand-tuned priority table per type.
+    """
+    if doc_type in origin_types:
+        return 0
+    if doc_type == "termination":
+        return 5
+    if doc_type == "other":
+        return 7
+    return 1
+
+
+def sort_documents(docs: List[DocumentInfo], origin_types: Optional[Set[str]] = None) -> List[DocumentInfo]:
     """
     Sort documents chronologically (oldest first) for HISTORY-DISPLAY
     purposes only (Raw Data column ordering, "documents" list in job_meta).
     Uses execution_date if available, falls back to amendment number,
-    then document type (lease before amendments).
+    then document type (origin document before amendments).
 
-    NOTE: this sort no longer decides which document "wins" for the three
-    priority date facts (Date_Lease/Date_Termination/Amendment_Effective_Date)
-    - those are pinned by document identity in merge_fields() based on
-    validated dates determined in app.py's Phase 3C, not by this sort order.
+    NOTE: this sort no longer decides which document "wins" for the
+    priority date facts (origin/termination/effective dates) - those are
+    pinned by document identity in merge_fields() based on validated dates
+    determined in app.py's Phase 3C, not by this sort order.
     execution_date is always assigned via parse_strict_date(...).strftime
     ("%m/%d/%Y") before this runs, so the single %m/%d/%Y format below is
     safe - it's no longer receiving a mix of formats (e.g. an AI-normalized
     ISO "2007-07-30" string) the way it used to.
+
+    origin_types: which doc_type(s) count as the origin document for this
+    agreement type. Defaults to {"lease"} for backward compatibility (and
+    uses the lease's own hand-tuned _LEASE_TYPE_PRIORITY table in that
+    case); any other value uses the simpler _generic_type_priority.
     """
+    is_lease = origin_types is None or origin_types == {"lease"}
+    if origin_types is None:
+        origin_types = {"lease"}
+
     def sort_key(doc: DocumentInfo):
         # Primary: execution date
         date_val = None
@@ -345,26 +469,16 @@ def sort_documents(docs: List[DocumentInfo]) -> List[DocumentInfo]:
             except ValueError:
                 pass
 
-        # Secondary: amendment number (lease=0, amendments=1-N)
+        # Secondary: amendment number (origin doc=0, amendments=1-N)
         amend_num = doc.amendment_number or 0
-        if doc.doc_type == "lease":
+        if doc.doc_type in origin_types:
             amend_num = 0
 
         # Tertiary: type priority
-        type_priority = {
-            "lease": 0,
-            "guaranty": 0,
-            "amendment": 1,
-            "covid_amendment": 2,
-            "omnibus_agreement": 2,
-            "change_request": 3,
-            "resolution": 3,
-            "settlement": 4,
-            "termination": 5,
-            "estoppel": 6,
-            "other": 7,
-        }
-        type_val = type_priority.get(doc.doc_type, 7)
+        if is_lease:
+            type_val = _LEASE_TYPE_PRIORITY.get(doc.doc_type, 7)
+        else:
+            type_val = _generic_type_priority(doc.doc_type, origin_types)
 
         # Sort: date first (None last), then amendment number, then type
         if date_val:
@@ -402,6 +516,11 @@ def merge_fields(
     sorted_docs: List[DocumentInfo],
     skip_empty: bool = True,
     effective_date_source: Optional["DocumentInfo"] = None,
+    effective_date_field: str = "Amendment_Effective_Date",
+    origin_only_fields: Optional[Set[str]] = None,
+    origin_types: Optional[Set[str]] = None,
+    termination_only_fields: Optional[Set[str]] = None,
+    termination_types: Optional[Set[str]] = None,
 ) -> Dict[str, FieldHistory]:
     """
     Merge fields across documents in chronological order.
@@ -411,37 +530,60 @@ def merge_fields(
 
     Exceptions (pinned fields - never "latest wins" across arbitrary
     documents):
-    - LEASE_ORIGIN_ONLY_FIELDS (e.g. Date_Lease, Date_Commencment) describe
-      a fixed historical fact about the original lease and are only ever
-      populated from the document classified as doc_type == "lease".
-    - TERMINATION_ONLY_FIELDS (Date_Termination) are only ever populated
-      from a document classified as doc_type == "termination".
-    - Amendment_Effective_Date is pinned to ONE specific document: whichever
-      document the caller identified as "the latest" (passed in as
-      effective_date_source - see _run_multi_file_pipeline's classify step).
-      This is the user's Priority #1 fact ("the effective date... once
-      found in the latest document, nothing overrides it") - it must not
-      be treated as an ordinary latest-wins field across every amendment,
-      or whichever document merely SORTS last (by a possibly-wrong parsed
-      date) would silently win instead of the document actually identified
-      as latest. If effective_date_source is None, falls back to ordinary
-      latest-wins behavior across amendment-like documents.
+    - origin_only_fields (e.g. Date_Lease, Date_Commencment for a lease;
+      Date_Effective, Agreement_Name for a PSA) describe a fixed historical
+      fact about the original document and are only ever populated from a
+      document whose doc_type is in origin_types. Defaults to
+      LEASE_ORIGIN_ONLY_FIELDS/{"lease"} for backward compatibility when
+      not given (the lease pipeline's historical behavior, unchanged).
+    - termination_only_fields (e.g. Date_Termination) are only ever
+      populated from a document whose doc_type is in termination_types.
+      Defaults to TERMINATION_ONLY_FIELDS/{"termination"} for backward
+      compatibility when not given.
+    - effective_date_field (e.g. Amendment_Effective_Date) is pinned to ONE
+      specific document: whichever document the caller identified as "the
+      latest" (passed in as effective_date_source - see
+      _run_multi_file_pipeline's classify step). This is the user's
+      Priority #1 fact ("the effective date... once found in the latest
+      document, nothing overrides it") - it must not be treated as an
+      ordinary latest-wins field across every amendment, or whichever
+      document merely SORTS last (by a possibly-wrong parsed date) would
+      silently win instead of the document actually identified as latest.
+      If effective_date_source is None, falls back to ordinary latest-wins
+      behavior across amendment-like documents.
 
     Args:
         sorted_docs: Documents sorted oldest → newest
         skip_empty: Don't count "None." / empty / "See Original Lease." as values
         effective_date_source: the DocumentInfo identified as "the latest"
           document (excluding a Termination Notice, if any) - see
-          Date_Termination handling in _run_multi_file_pipeline. Only this
-          document's Amendment_Effective_Date value is used.
+          termination-date handling in _run_multi_file_pipeline. Only this
+          document's effective_date_field value is used.
+        effective_date_field: which field name is pinned to
+          effective_date_source (varies by agreement type).
+        origin_only_fields / origin_types: which fields are pinned to the
+          origin document, and which doc_type(s) count as the origin
+          document (varies by agreement type).
+        termination_only_fields / termination_types: same, for
+          termination-only facts.
 
     Returns:
         Dict mapping field_name → FieldHistory with current value and history
     """
+    if origin_only_fields is None:
+        origin_only_fields = LEASE_ORIGIN_ONLY_FIELDS
+    if origin_types is None:
+        origin_types = {"lease"}
+    if termination_only_fields is None:
+        termination_only_fields = TERMINATION_ONLY_FIELDS
+    if termination_types is None:
+        termination_types = {"termination"}
+
     merged: Dict[str, FieldHistory] = {}
 
     skip_values = {'', 'none', 'none.', 'n/a', 'not applicable',
-                   'see original lease', 'see original lease.', 'not found.'}
+                   'see original lease', 'see original lease.',
+                   'see original agreement', 'see original agreement.', 'not found.'}
 
     for doc in sorted_docs:
         for field_name, value in doc.field_data.items():
@@ -449,17 +591,17 @@ def merge_fields(
             if skip_empty and (not value or value.strip().lower() in skip_values):
                 continue
 
-            # Lease-origin facts can only come from the actual lease document.
-            if field_name in LEASE_ORIGIN_ONLY_FIELDS and doc.doc_type != "lease":
+            # Origin-only facts can only come from the origin document.
+            if field_name in origin_only_fields and doc.doc_type not in origin_types:
                 continue
 
             # Termination-only facts can only come from a termination notice.
-            if field_name in TERMINATION_ONLY_FIELDS and doc.doc_type != "termination":
+            if field_name in termination_only_fields and doc.doc_type not in termination_types:
                 continue
 
             # The "latest document's effective date" is pinned to exactly
             # one document, identified by the caller - not by sort order.
-            if field_name == "Amendment_Effective_Date" and effective_date_source is not None:
+            if field_name == effective_date_field and effective_date_source is not None:
                 if doc is not effective_date_source:
                     continue
 

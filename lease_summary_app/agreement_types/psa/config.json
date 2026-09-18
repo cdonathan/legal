@@ -1,0 +1,325 @@
+{
+  "name": "Purchase & Sale Agreement",
+  "description": "Real estate purchase and sale agreements, amendments, and closing/termination documents",
+  "template_path": "SeedJura_PSA_Summary_FORM.docx",
+
+  "doc_type_signals": {
+    "filename": ["purchase and sale", "purchase & sale", "psa", "agreement of sale", "real estate purchase"],
+    "header": [
+      "purchase and sale agreement",
+      "agreement for purchase and sale",
+      "agreement of sale and purchase",
+      "real estate purchase agreement",
+      "buyer",
+      "seller",
+      "earnest money",
+      "due diligence period",
+      "escrow agent",
+      "statutory warranty deed"
+    ]
+  },
+
+  "date_roles": {
+    "origin_types": ["psa"],
+    "origin_date_field": "Date_Effective",
+    "origin_date_fallback_field": "",
+    "origin_only_fields": ["Date_Effective", "Agreement_Name"],
+    "termination_types": ["termination"],
+    "termination_date_field": "Date_Termination",
+    "termination_only_fields": ["Date_Termination", "Termination_Deposit_Disposition"],
+    "effective_types": ["amendment"],
+    "effective_date_field": "Amendment_Effective_Date"
+  },
+
+  "sub_types": {
+    "amendment": {
+      "filename_signals": ["amendment", "amend"],
+      "header_signals": [
+        "amendment to purchase",
+        "amendment to agreement",
+        "first amendment",
+        "second amendment",
+        "third amendment",
+        "amendment no.",
+        "amendment number",
+        "this amendment",
+        "amends the agreement",
+        "extension of closing"
+      ],
+      "ai_instruction": "IMPORTANT - THIS DOCUMENT IS A PSA AMENDMENT:\n- This is NOT the full purchase and sale agreement. It only modifies specific sections of the original PSA (commonly the Purchase Price, Closing Date, or Due Diligence Period).\n- For fields that are NOT addressed in this amendment, return \"See Original Agreement.\"\n- Only extract fields that are explicitly stated or modified in this amendment.\n- DO NOT guess or fabricate values for sections that would only be in the original agreement.\n- Fields commonly NOT in an amendment: representations and warranties, prorations, broker provisions, governing law, confidentiality.\n- Fields commonly IN an amendment: purchase price changes, closing date extensions, deposit changes, due diligence period extensions, specific clause modifications.",
+      "skip_fields": [
+        "Seller_Representations", "Buyer_Representations", "AsIs_Disclaimer",
+        "Proration_Items", "Broker_Name", "Broker_Commission_Responsibility",
+        "Governing_Law", "Confidentiality_Provision", "Assignment_Rights",
+        "Section_1031_Exchange", "Prohibited_Persons_Provision",
+        "Waiver_Jury_Trial", "Risk_of_Loss", "Condemnation_Provision"
+      ]
+    },
+    "termination": {
+      "filename_signals": ["termination", "notice of termination", "cancellation"],
+      "header_signals": [
+        "notice of termination",
+        "termination of purchase and sale",
+        "termination agreement",
+        "mutual release",
+        "cancellation of agreement",
+        "hereby terminates",
+        "hereby cancels"
+      ],
+      "ai_instruction": "IMPORTANT - THIS DOCUMENT IS A TERMINATION/CANCELLATION NOTICE:\n- This document ends the purchase and sale transaction without a closing occurring.\n- Only extract Date_Termination (the date the agreement was terminated/cancelled) and, if stated, which party terminated and the disposition of the Earnest Money Deposit (returned to Buyer, retained by Seller, split, etc.) as Termination_Deposit_Disposition.\n- Return \"None.\" for every other field - a termination notice does not restate the deal's substantive terms.",
+      "skip_fields": []
+    }
+  },
+
+  "system_prompt": "You are a real estate purchase and sale agreement data extractor. You ONLY copy and paste exact text from the agreement. You NEVER summarize, paraphrase, or use your own words. Every 'text' value you return must appear verbatim in the source document.",
+
+  "extraction_rules": "CRITICAL RULES - READ CAREFULLY:\n- You MUST copy/paste exact language from the document. Do NOT summarize, paraphrase, or reword. Every 'text' value you return must be text that appears verbatim in the document.\n- If a provision is not found or not applicable, \"text\" should be \"None.\" (with period).\n- SECTION (\"section\"): whenever you find data, ALWAYS report the section/article reference exactly as labeled in the document (e.g. \"Section 4\", \"Paragraph 6(a)\", \"Article 9\"). Empty string only if the document truly has no section numbering nearby.\n- For dollar amounts in \"text\", copy exactly as written including $ sign and the written-out amount if present (e.g. \"Thirty-Eight Thousand and 00/100 dollars ($38,000.00)\").\n- IMPORTANT: Start each extraction at the BEGINNING of the relevant sentence or clause. Do not start mid-sentence.\n- For long provisions (representations and warranties, prorations, default/remedies, title/survey): copy the FULL relevant clause starting from its topic sentence (up to 300 words).\n- For Property Legal Description: copy the full legal description exactly, including lot/parcel numbers, recording references, and county.\n- For Purchase Price: capture the full pricing mechanism if it involves multiple components (cash, credits, allocations) rather than just the headline number.\n- For Earnest Money/Deposit: capture the amount AND the timing (e.g. \"within five (5) business days after the Effective Date\") AND refundability conditions.\n- For entity names (Buyer, Seller): carry every name/entity type exactly as stated, including for multiple buyers/sellers if present.",
+
+  "interpretation_rules": "Give a precise, useful reading of the raw text, in the context of the full agreement and any amendments:\n- Single facts (names, dates, dollar amounts, percentages, counts, Yes/No questions): return JUST the precise value, not the full sentence. E.g. \"$380,000.00\" not the full written-out sentence; \"30 days after the Effective Date\" not the whole clause.\n- Yes/No questions: answer \"Yes\", \"Yes, subject to Buyer's consent\", \"No\", etc. - plus any material conditions in a short trailing clause.\n- Clauses with multiple distinct parts (representations and warranties, prorations, closing conditions): break the interpretation into a lettered list - (a) ..., (b) ..., (c) ... - one item per distinct requirement/right, in plain language.\n- If the raw text is \"None.\" or genuinely has nothing to interpret, return exactly \"None\" (no period).\n- Do not include the section reference - that is tracked separately.\n- For Purchase Price: give just the final total price (and note any credits/allocations briefly).\n- For Earnest Money Deposit: give the amount and refundability window in one short line.\n- For entity names appearing more than once across the PSA + amendments: give the CURRENT/latest name.",
+
+  "fields": {
+    "PSA_Summary_Preparer": "Name of person preparing this summary",
+    "PSA_Summary_Date": "Date the summary was prepared",
+    "PSA_Summary_Purpose": "Purpose of the summary (e.g., acquisition review, diligence)",
+
+    "Property_Name": "Name of the property/project being sold, if any",
+    "Property_Address_1": "Street address line 1 of the property being sold",
+    "Property_Address_2": "Street address line 2 of the property being sold",
+    "Property_Address_City": "City where the property is located",
+    "Property_Address_State": "State where the property is located",
+    "Property_Address_Zip": "Zip code of the property",
+    "Property_Legal_Description": "The full legal description of the property (lot/parcel numbers, subdivision plat, recording references, county) - copy verbatim, this is often lengthy",
+    "Property_Type": "Type of property being sold (e.g., vacant land, office building, retail center, single-family residence)",
+
+    "Seller_Name": "Name of the Seller (if multiple sellers, list all)",
+    "Seller_StReg": "Seller's state of formation/registration (if an entity)",
+    "Seller_Type": "Seller's entity type (e.g., limited liability company, corporation, individual)",
+    "Seller_Address": "Seller's notice address",
+    "Seller_Attn": "Seller's attention/contact person for notices",
+    "Seller_Email": "Seller's email address for notices",
+    "Buyer_Name": "Name of the Buyer (if multiple buyers, list all)",
+    "Buyer_StReg": "Buyer's state of formation/registration (if an entity)",
+    "Buyer_Type": "Buyer's entity type (e.g., limited liability company, corporation, individual, municipal corporation)",
+    "Buyer_Address": "Buyer's notice address",
+    "Buyer_Attn": "Buyer's attention/contact person for notices",
+    "Buyer_Email": "Buyer's email address for notices",
+
+    "Agreement_Name": "Name/title of the purchase and sale agreement",
+    "Agreement_Amendments": "Any amendments to the agreement",
+    "Date_Effective": "The ORIGINAL AGREEMENT's own effective/execution date - found in the ORIGINAL AGREEMENT document's own opening paragraph (e.g. 'THIS AGREEMENT...is made and entered into as of ___, 20__ (the \"Effective Date\")'). If you are reading an AMENDMENT document, do NOT extract this from the amendment's recital paragraph that recites the agreement's history - that recital is historical context, not this document's own facts. Return 'None.' if reading an amendment rather than the original agreement.",
+    "Amendment_Effective_Date": "ONLY applicable when reading an AMENDMENT document (not the original agreement and not a Termination Notice): this specific amendment's OWN effective/execution date. Return 'None.' if reading the original agreement itself (use Date_Effective for that) or a Termination Notice (use Date_Termination for that).",
+    "Date_Termination": "ONLY applicable when reading a TERMINATION/CANCELLATION NOTICE document: the date the agreement was terminated/cancelled. Return 'None.' for every other document type.",
+    "Termination_Deposit_Disposition": "ONLY applicable when reading a TERMINATION/CANCELLATION NOTICE document: what happens to the Earnest Money Deposit upon termination (returned to Buyer, retained by Seller, split between parties, etc.). Return 'None.' for every other document type.",
+
+    "Purchase_Price": "The total purchase price for the Property, including full written-out amount and any non-cash components (credits, allocations, in-kind contributions) if present",
+    "Purchase_Price_Allocation": "If the agreement allocates the purchase price across multiple properties or components, the full allocation breakdown - otherwise 'None.'",
+    "Earnest_Money_Amount": "The earnest money / initial deposit amount",
+    "Earnest_Money_Deposit_Deadline": "The deadline for Buyer to deposit the earnest money (e.g. 'within five (5) business days after the Effective Date')",
+    "Earnest_Money_Refundability": "Under what conditions the earnest money deposit is refundable to Buyer (e.g. fully refundable during Due Diligence Period, non-refundable except for Seller default after that)",
+    "Additional_Deposit_Amount": "Any additional/second deposit required beyond the initial earnest money, and when it is due - 'None.' if there is only one deposit",
+    "Escrow_Agent_Name": "Name of the escrow agent/company holding the deposit",
+    "Title_Company_Name": "Name of the title company issuing title insurance, if different from the escrow agent",
+
+    "Financing_Contingency": "Whether the purchase is contingent on Buyer obtaining financing, and the material terms of that contingency (loan amount, deadline, Buyer's rights if financing is denied). Return 'None.' if the purchase is not financing-contingent (e.g. an all-cash deal)",
+    "Due_Diligence_Period_Length": "The length of the Due Diligence/Inspection Period (e.g. '30 days after the Effective Date') and what Buyer may do/terminate for during it",
+    "Due_Diligence_Termination_Rights": "Buyer's right to terminate during/at the end of the Due Diligence Period and the consequence for the deposit (full refund, etc.)",
+
+    "Title_Requirements": "Requirements for the condition of title Seller must convey (e.g. 'fee simple title...by statutory warranty deed...free and clear of all liens') and the deed type used",
+    "Title_Review_Period": "The period Buyer has to review title/survey and object to exceptions (the 'Title Review Period')",
+    "Survey_Requirements": "Requirements regarding a survey of the Property, who obtains it, and at whose cost - 'None.' if no survey is required",
+    "Permitted_Title_Exceptions": "Title exceptions/encumbrances the Buyer has agreed to accept (e.g. non-delinquent property tax liens, recorded easements) - the 'Approved Title Conditions' or similar",
+
+    "Closing_Date": "The Closing Date or the mechanism for determining it (e.g. 'within twenty (20) days after the expiration of the Due Diligence Period') - copy the full conditional language if the exact date is not fixed",
+    "Closing_Extension_Rights": "Any right either party has to extend the Closing Date (e.g. 'two successive thirty (30) day periods'), and any fee/condition for doing so - 'None.' if no extension right exists",
+    "Closing_Conditions_Buyer": "Conditions that must be satisfied for Buyer's obligation to close (e.g. Seller's representations true and correct, title approved, financing obtained)",
+    "Closing_Conditions_Seller": "Conditions that must be satisfied for Seller's obligation to close",
+    "Closing_Costs_Allocation": "How closing costs (attorneys' fees, title premiums, transfer taxes, escrow fees, recording fees) are allocated between Buyer and Seller",
+    "Proration_Items": "Items to be prorated between Buyer and Seller as of the Closing Date (e.g. rent, CAM charges, real property taxes, utilities, security deposits) and the proration methodology",
+
+    "Seller_Representations": "Seller's representations and warranties to Buyer - full list/summary of the material items (authority, no litigation, title, environmental, compliance with law, etc.)",
+    "Buyer_Representations": "Buyer's representations and warranties to Seller (authority, no litigation, financial capacity, etc.)",
+    "AsIs_Disclaimer": "Whether the Property is sold 'AS IS, WHERE IS' and the scope of Seller's disclaimer of warranties regarding the Property's condition - 'None.' if the sale is not on an as-is basis",
+    "Reps_Survival_Period": "How long Seller's and/or Buyer's representations and warranties survive after Closing (e.g. '12 months after Closing') - 'None.' if they do not survive Closing",
+    "Holdback_Escrow_Amount": "If a portion of the purchase price is held back in escrow post-closing to secure Seller's representations, the amount and release terms - 'None.' if there is no holdback",
+
+    "Default_Seller_Remedy": "Buyer's remedies if Seller defaults (e.g. terminate and receive deposit refund, or seek specific performance, including any time limit to bring a specific performance action)",
+    "Default_Buyer_Remedy": "Seller's remedies if Buyer defaults (e.g. retain the deposit as liquidated damages) and whether that is Seller's sole remedy",
+    "Risk_of_Loss": "Which party bears the risk of loss/casualty to the Property between the Effective Date and Closing, and Buyer's rights if a casualty occurs",
+    "Condemnation_Provision": "Buyer's and Seller's rights if all or part of the Property is condemned/taken before Closing - 'None.' if not addressed",
+
+    "Broker_Name": "Name of any real estate broker(s) involved in the transaction, and which party they represent - 'None.' if no broker is involved",
+    "Broker_Commission_Responsibility": "Which party is responsible for paying any broker commission",
+    "Assignment_Rights": "Whether and under what conditions either party may assign the agreement (e.g. Buyer may assign to an affiliate without Seller's consent) - full language",
+    "Section_1031_Exchange": "Whether either party may structure the transaction as a Section 1031 like-kind exchange, and the cooperation obligations of the other party - 'None.' if not addressed",
+    "Confidentiality_Provision": "Confidentiality obligations regarding the terms of the agreement and due diligence materials - 'None.' if not addressed",
+    "Governing_Law": "The state whose law governs the agreement",
+    "Prohibited_Persons_Provision": "OFAC/anti-terrorism/prohibited persons representation, if present - 'None.' if not addressed",
+    "Waiver_Jury_Trial": "Whether the parties waive the right to a jury trial - 'Yes' or 'None.'",
+    "Notices_Method": "The required method(s) for giving notice under the agreement (e.g. email, overnight courier) and to whom copies must be sent"
+  },
+
+  "expected_fields": [
+    "Seller_Name", "Buyer_Name", "Purchase_Price", "Property_Address_1",
+    "Date_Effective", "Closing_Date"
+  ],
+
+  "short_fields": [
+    "PSA_Summary_Preparer", "PSA_Summary_Date", "PSA_Summary_Purpose",
+    "Property_Name", "Property_Address_1", "Property_Address_2",
+    "Property_Address_City", "Property_Address_State", "Property_Address_Zip",
+    "Property_Type",
+    "Seller_Name", "Seller_StReg", "Seller_Type", "Seller_Address", "Seller_Attn", "Seller_Email",
+    "Buyer_Name", "Buyer_StReg", "Buyer_Type", "Buyer_Address", "Buyer_Attn", "Buyer_Email",
+    "Agreement_Name", "Date_Effective", "Amendment_Effective_Date", "Date_Termination",
+    "Termination_Deposit_Disposition",
+    "Purchase_Price", "Earnest_Money_Amount", "Earnest_Money_Deposit_Deadline",
+    "Additional_Deposit_Amount", "Escrow_Agent_Name", "Title_Company_Name",
+    "Due_Diligence_Period_Length", "Title_Review_Period",
+    "Closing_Date", "Reps_Survival_Period", "Holdback_Escrow_Amount",
+    "Broker_Name", "Broker_Commission_Responsibility", "Governing_Law",
+    "Waiver_Jury_Trial"
+  ],
+
+  "retry_hints": {
+    "Purchase_Price": "Look for 'Purchase Price' section header, often phrased as 'the sale price of...for a total cash sum of...'",
+    "Earnest_Money_Amount": "Look for 'Earnest Money Deposit' or 'Deposit' with a dollar amount and a deadline like 'within X business days after the Effective Date'",
+    "Due_Diligence_Period_Length": "Look for 'Due Diligence Period' definition, often a number of days after the Effective Date",
+    "Closing_Date": "Look for 'Closing' or 'Close of Escrow' section - the date is often defined relative to the end of the Due Diligence Period rather than a fixed calendar date",
+    "Title_Requirements": "Look for 'Condition of Title' section, deed type (statutory warranty deed, special warranty deed, quitclaim deed) and 'free and clear of liens'",
+    "Seller_Representations": "Look for 'REPRESENTATIONS AND WARRANTIES' section header, Seller's Representations subsection, often with a lettered/numbered list",
+    "Property_Legal_Description": "Look near 'Purchase and Sale' or 'Property' definition at the start of the agreement, often referencing a lot/parcel number, plat map, or Exhibit A",
+    "Default_Seller_Remedy": "Look for 'DEFAULT AND DAMAGES' or 'Default by Seller' section",
+    "Default_Buyer_Remedy": "Look for 'Default by Buyer' section, often mentioning liquidated damages and the Deposit"
+  },
+
+  "sections": [
+    {
+      "title": "Summary Info",
+      "fields": [
+        ["PSA_Summary_Preparer", "Prepared By"],
+        ["PSA_Summary_Date", "Date"],
+        ["PSA_Summary_Purpose", "Purpose"]
+      ]
+    },
+    {
+      "title": "Property",
+      "fields": [
+        ["Property_Name", "Property Name"],
+        ["Property_Address_1", "Address Line 1"],
+        ["Property_Address_2", "Address Line 2"],
+        ["Property_Address_City", "City"],
+        ["Property_Address_State", "State"],
+        ["Property_Address_Zip", "Zip"],
+        ["Property_Type", "Property Type"],
+        ["Property_Legal_Description", "Legal Description"]
+      ]
+    },
+    {
+      "title": "Seller",
+      "fields": [
+        ["Seller_Name", "Seller Name"],
+        ["Seller_StReg", "Seller State of Registration"],
+        ["Seller_Type", "Seller Entity Type"],
+        ["Seller_Address", "Notice Address"],
+        ["Seller_Attn", "Attention"],
+        ["Seller_Email", "Email"]
+      ]
+    },
+    {
+      "title": "Buyer",
+      "fields": [
+        ["Buyer_Name", "Buyer Name"],
+        ["Buyer_StReg", "Buyer State of Registration"],
+        ["Buyer_Type", "Buyer Entity Type"],
+        ["Buyer_Address", "Notice Address"],
+        ["Buyer_Attn", "Attention"],
+        ["Buyer_Email", "Email"]
+      ]
+    },
+    {
+      "title": "Agreement & Key Dates",
+      "fields": [
+        ["Agreement_Name", "Agreement Name"],
+        ["Agreement_Amendments", "Amendments"],
+        ["Date_Effective", "Effective Date"],
+        ["Amendment_Effective_Date", "Amendment Effective Date"],
+        ["Closing_Date", "Closing Date"],
+        ["Date_Termination", "Termination Date"],
+        ["Termination_Deposit_Disposition", "Deposit Disposition on Termination"]
+      ]
+    },
+    {
+      "title": "Purchase Price & Deposit",
+      "fields": [
+        ["Purchase_Price", "Purchase Price"],
+        ["Purchase_Price_Allocation", "Price Allocation"],
+        ["Earnest_Money_Amount", "Earnest Money Deposit"],
+        ["Earnest_Money_Deposit_Deadline", "Deposit Deadline"],
+        ["Earnest_Money_Refundability", "Deposit Refundability"],
+        ["Additional_Deposit_Amount", "Additional Deposit"],
+        ["Escrow_Agent_Name", "Escrow Agent"],
+        ["Title_Company_Name", "Title Company"]
+      ]
+    },
+    {
+      "title": "Financing & Due Diligence",
+      "fields": [
+        ["Financing_Contingency", "Financing Contingency"],
+        ["Due_Diligence_Period_Length", "Due Diligence Period"],
+        ["Due_Diligence_Termination_Rights", "Due Diligence Termination Rights"]
+      ]
+    },
+    {
+      "title": "Title & Survey",
+      "fields": [
+        ["Title_Requirements", "Title Requirements"],
+        ["Title_Review_Period", "Title Review Period"],
+        ["Survey_Requirements", "Survey Requirements"],
+        ["Permitted_Title_Exceptions", "Permitted Title Exceptions"]
+      ]
+    },
+    {
+      "title": "Closing",
+      "fields": [
+        ["Closing_Extension_Rights", "Closing Extension Rights"],
+        ["Closing_Conditions_Buyer", "Buyer's Closing Conditions"],
+        ["Closing_Conditions_Seller", "Seller's Closing Conditions"],
+        ["Closing_Costs_Allocation", "Closing Costs Allocation"],
+        ["Proration_Items", "Prorations"]
+      ]
+    },
+    {
+      "title": "Representations, Warranties & Risk",
+      "fields": [
+        ["Seller_Representations", "Seller's Representations"],
+        ["Buyer_Representations", "Buyer's Representations"],
+        ["AsIs_Disclaimer", "As-Is Disclaimer"],
+        ["Reps_Survival_Period", "Survival Period"],
+        ["Holdback_Escrow_Amount", "Holdback Escrow"],
+        ["Risk_of_Loss", "Risk of Loss"],
+        ["Condemnation_Provision", "Condemnation"]
+      ]
+    },
+    {
+      "title": "Default & Remedies",
+      "fields": [
+        ["Default_Seller_Remedy", "Remedy for Seller's Default"],
+        ["Default_Buyer_Remedy", "Remedy for Buyer's Default"]
+      ]
+    },
+    {
+      "title": "Other Provisions",
+      "fields": [
+        ["Broker_Name", "Broker"],
+        ["Broker_Commission_Responsibility", "Commission Responsibility"],
+        ["Assignment_Rights", "Assignment Rights"],
+        ["Section_1031_Exchange", "1031 Exchange"],
+        ["Confidentiality_Provision", "Confidentiality"],
+        ["Governing_Law", "Governing Law"],
+        ["Prohibited_Persons_Provision", "Prohibited Persons"],
+        ["Waiver_Jury_Trial", "Jury Trial Waiver"],
+        ["Notices_Method", "Notice Method"]
+      ]
+    }
+  ]
+}

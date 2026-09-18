@@ -170,14 +170,26 @@ def _split_early_termination(value: str) -> tuple:
     return (value, value)
 
 
-def field_data_to_xml(field_data: Dict[str, str], normalized_dates: Dict[str, str] = None) -> str:
+def field_data_to_xml(
+    field_data: Dict[str, str],
+    normalized_dates: Dict[str, str] = None,
+    xml_fields: list = None,
+) -> str:
     """
     Convert extracted field data dict to the GlobalFormVars XML format.
     Returns XML string.
     normalized_dates: optional dict of {field_name: "mm/dd/yyyy"}
 
-    Every base field in XML_FIELDS is emitted along with its two
-    companion variables:
+    xml_fields: the ordered list of base field names to emit as top-level
+    XML elements. Defaults to XML_FIELDS (the lease schema) for backward
+    compatibility. Pass an agreement type's own field list (e.g.
+    list(agr.fields.keys())) for non-lease types (like PSA) so their real
+    field names appear in the output instead of silently being dropped
+    because they don't match the lease's fixed schema, or mixed in with
+    lease-only fields that don't apply.
+
+    Every base field in xml_fields is emitted along with its two companion
+    variables:
       <FieldName>       -- base value
       <FieldName_Int>   -- Interpretation (precise/latest value + section ref)
       <FieldName_Raw>   -- Raw Data (verbatim copy/paste, all historical
@@ -185,6 +197,16 @@ def field_data_to_xml(field_data: Dict[str, str], normalized_dates: Dict[str, st
     """
     if normalized_dates is None:
         normalized_dates = {}
+    if xml_fields is None:
+        xml_fields = XML_FIELDS
+
+    # FIELD_TO_XML_MAP and the Early_Termination split below are quirks of
+    # the lease schema specifically (renaming a couple of internal field
+    # names, and splitting one combined field into two). They only apply
+    # when emitting the default lease schema - a non-lease type (e.g. PSA)
+    # has its own field names already and none of this remapping is
+    # meaningful for it.
+    using_lease_schema = xml_fields is XML_FIELDS
 
     # Build a lookup that maps XML field names to values
     xml_values = {}
@@ -204,8 +226,8 @@ def field_data_to_xml(field_data: Dict[str, str], normalized_dates: Dict[str, st
                 base_internal = internal_name[: -len(s)]
                 break
 
-        # Check if this field needs name mapping
-        if base_internal in FIELD_TO_XML_MAP:
+        # Check if this field needs name mapping (lease schema only)
+        if using_lease_schema and base_internal in FIELD_TO_XML_MAP:
             xml_base = FIELD_TO_XML_MAP[base_internal]
             if xml_base is None:
                 continue
@@ -217,20 +239,21 @@ def field_data_to_xml(field_data: Dict[str, str], normalized_dates: Dict[str, st
         if not suffix and base_internal in normalized_dates:
             xml_dates[xml_name] = normalized_dates[base_internal]
 
-    # Handle Early_Termination split (base value only; _Int/_Raw pass through
-    # under their own already-mapped names since Early_Termination_Description
-    # isn't in XML_FIELDS as a bare field)
-    et_value = field_data.get("Early_Termination_Description", "")
-    if et_value:
-        ll_text, tn_text = _split_early_termination(et_value)
-        xml_values["Early_Termination_LL_Description"] = ll_text
-        xml_values["Early_Termination_Tenant_Description"] = tn_text
-    for suffix in ("_Int", "_Raw"):
-        et_variant = field_data.get(f"Early_Termination_Description{suffix}", "")
-        if et_variant:
-            ll_text, tn_text = _split_early_termination(et_variant)
-            xml_values[f"Early_Termination_LL_Description{suffix}"] = ll_text
-            xml_values[f"Early_Termination_Tenant_Description{suffix}"] = tn_text
+    if using_lease_schema:
+        # Handle Early_Termination split (base value only; _Int/_Raw pass
+        # through under their own already-mapped names since
+        # Early_Termination_Description isn't in XML_FIELDS as a bare field)
+        et_value = field_data.get("Early_Termination_Description", "")
+        if et_value:
+            ll_text, tn_text = _split_early_termination(et_value)
+            xml_values["Early_Termination_LL_Description"] = ll_text
+            xml_values["Early_Termination_Tenant_Description"] = tn_text
+        for suffix in ("_Int", "_Raw"):
+            et_variant = field_data.get(f"Early_Termination_Description{suffix}", "")
+            if et_variant:
+                ll_text, tn_text = _split_early_termination(et_variant)
+                xml_values[f"Early_Termination_LL_Description{suffix}"] = ll_text
+                xml_values[f"Early_Termination_Tenant_Description{suffix}"] = tn_text
 
     # Build XML
     root = ET.Element("GlobalFormVars")
@@ -240,7 +263,7 @@ def field_data_to_xml(field_data: Dict[str, str], normalized_dates: Dict[str, st
             return ""
         return val
 
-    for xml_field in XML_FIELDS:
+    for xml_field in xml_fields:
         for suffix in ("", "_Int", "_Raw"):
             name = f"{xml_field}{suffix}"
             elem = ET.SubElement(root, name)
@@ -257,11 +280,15 @@ def field_data_to_xml(field_data: Dict[str, str], normalized_dates: Dict[str, st
     return xml_string
 
 
-def field_data_to_xml_pretty(field_data: Dict[str, str], normalized_dates: Dict[str, str] = None) -> str:
+def field_data_to_xml_pretty(
+    field_data: Dict[str, str],
+    normalized_dates: Dict[str, str] = None,
+    xml_fields: list = None,
+) -> str:
     """
     Same as field_data_to_xml but with pretty-printing for readability.
     """
-    xml_str = field_data_to_xml(field_data, normalized_dates)
+    xml_str = field_data_to_xml(field_data, normalized_dates, xml_fields=xml_fields)
     # Parse and pretty-print
     dom = minidom.parseString(xml_str)
     pretty = dom.toprettyxml(indent="  ", encoding=None)

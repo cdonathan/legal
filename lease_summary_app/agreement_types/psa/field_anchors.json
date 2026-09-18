@@ -1,0 +1,197 @@
+{
+  "_comment": "Keyword anchor patterns for PSA field extraction. Each field maps to a list of regex patterns used to locate the correct clause in the source text. Patterns are tried in order - first match wins. Wildcards are bounded at match time by engine.py's _bound_anchor_pattern() to avoid catastrophic backtracking against full-length documents - write patterns naturally here, the bound is applied automatically.",
+  "Purchase_Price": [
+    "purchase price.*shall be",
+    "sale price of.*for a total cash sum",
+    "buyer agrees to purchase.*at the.*price",
+    "total purchase price.*is",
+    "purchase price.*dollars"
+  ],
+  "Earnest_Money_Amount": [
+    "earnest money deposit.*the sum of",
+    "deposit.*payable to the escrow agent",
+    "buyer will deposit.*earnest money",
+    "initial deposit.*dollars"
+  ],
+  "Earnest_Money_Refundability": [
+    "earnest money deposit.*fully refundable",
+    "deposit.*refundable to buyer",
+    "deposit.*non-refundable"
+  ],
+  "Due_Diligence_Period_Length": [
+    "due diligence period.*means",
+    "due diligence period.*shall.*mean",
+    "due diligence period.*ending",
+    "due diligence period.*days after"
+  ],
+  "Due_Diligence_Termination_Rights": [
+    "terminate.*during the due diligence period",
+    "buyer.*right to terminate.*due diligence",
+    "buyer may terminate.*prior to the expiration"
+  ],
+  "Financing_Contingency": [
+    "obtained all necessary financing",
+    "contingent upon.*financing",
+    "financing contingency",
+    "buyer's obligation.*subject to.*loan"
+  ],
+  "Title_Requirements": [
+    "fee simple title.*shall be conveyed",
+    "statutory warranty deed",
+    "special warranty deed",
+    "free and clear of all.*liens",
+    "condition of title"
+  ],
+  "Title_Review_Period": [
+    "title review period",
+    "buyer shall have until.*title",
+    "days.*to give seller notice.*title"
+  ],
+  "Survey_Requirements": [
+    "survey.*prepared by",
+    "buyer intends to obtain.*survey",
+    "current boundary survey"
+  ],
+  "Permitted_Title_Exceptions": [
+    "approved title conditions",
+    "permitted encumbrances",
+    "matters of title.*approved.*buyer"
+  ],
+  "Closing_Date": [
+    "closing.*will occur",
+    "closing date.*shall.*mean",
+    "closing shall occur.*days after",
+    "close of escrow shall occur"
+  ],
+  "Closing_Extension_Rights": [
+    "right to extend the closing",
+    "extend the closing.*successive",
+    "closing.*extended.*additional.*days"
+  ],
+  "Closing_Conditions_Buyer": [
+    "buyer's closing conditions",
+    "conditions to buyer's obligations",
+    "obligation of buyer.*subject to.*satisfaction"
+  ],
+  "Closing_Conditions_Seller": [
+    "seller's closing conditions",
+    "conditions to seller's obligations",
+    "obligation of.*seller.*subject to.*satisfaction"
+  ],
+  "Closing_Costs_Allocation": [
+    "closing costs.*each party shall pay",
+    "escrow fees will be shared",
+    "seller will pay.*excise tax",
+    "closing expenses.*apportioned"
+  ],
+  "Proration_Items": [
+    "prorations.*items described in schedule",
+    "shall comprise prorations and adjustments",
+    "current real property taxes will be prorated"
+  ],
+  "Seller_Representations": [
+    "seller's representations and warranties",
+    "seller hereby represents and warrants",
+    "to induce buyer.*seller.*represents and warrants"
+  ],
+  "Buyer_Representations": [
+    "buyer's representations and warranties",
+    "buyer hereby represents and warrants",
+    "to induce seller.*buyer.*represents and warrants"
+  ],
+  "AsIs_Disclaimer": [
+    "as-is.*where-is",
+    "as is.*basis",
+    "seller.*disclaims any.*warranties"
+  ],
+  "Reps_Survival_Period": [
+    "representations.*survive the closing for",
+    "shall survive.*days after closing",
+    "survive.*months after closing"
+  ],
+  "Holdback_Escrow_Amount": [
+    "holdback escrow",
+    "escrow deposit.*security for.*representations",
+    "seller shall deposit.*escrow account"
+  ],
+  "Default_Seller_Remedy": [
+    "default by seller",
+    "seller's default.*buyer shall be entitled",
+    "in the event of any default by seller"
+  ],
+  "Default_Buyer_Remedy": [
+    "default by buyer",
+    "buyer shall fail to close",
+    "deposit shall be paid over to seller as.*liquidated damages"
+  ],
+  "Risk_of_Loss": [
+    "risk of loss",
+    "risks and obligations of ownership",
+    "between the effective date and closing.*risk"
+  ],
+  "Condemnation_Provision": [
+    "condemnation",
+    "taking or condemnation of all or a portion",
+    "eminent domain"
+  ],
+  "Broker_Name": [
+    "broker.*identified in the basic terms",
+    "dealt with any broker, agent",
+    "listing agent"
+  ],
+  "Broker_Commission_Responsibility": [
+    "buyer shall pay commissions to broker",
+    "brokerage commission.*shall be paid by",
+    "commission due to.*broker"
+  ],
+  "Assignment_Rights": [
+    "buyer shall not assign this agreement",
+    "assign this agreement.*without.*consent",
+    "right to assign.*without seller's consent"
+  ],
+  "Section_1031_Exchange": [
+    "section 1031 exchange",
+    "like-kind exchange",
+    "deferred or reverse exchange"
+  ],
+  "Confidentiality_Provision": [
+    "confidentiality.*seller and buyer.*shall each maintain",
+    "maintain the confidentiality of the terms"
+  ],
+  "Governing_Law": [
+    "governed by.*laws of the state",
+    "applicable laws.*governed by"
+  ],
+  "Prohibited_Persons_Provision": [
+    "prohibited persons",
+    "office of foreign assets control",
+    "specifically designated national"
+  ],
+  "Waiver_Jury_Trial": [
+    "waive the right to trial by jury",
+    "waiver of trial by jury"
+  ],
+  "Notices_Method": [
+    "notice.*shall be in writing.*delivered",
+    "every notice.*demand or consent"
+  ],
+  "Property_Legal_Description": [
+    "the property shall consist of",
+    "legally described as",
+    "property.*more particularly described"
+  ],
+  "Date_Effective": [
+    "made and entered into as of.*effective date",
+    "dated effective as of",
+    "this agreement.*dated as of"
+  ],
+  "Amendment_Effective_Date": [
+    "amendment.*effective as of",
+    "this amendment.*dated"
+  ],
+  "Date_Termination": [
+    "termination date.*shall be",
+    "hereby terminate.*agreement.*effective",
+    "agreement is hereby terminated"
+  ]
+}

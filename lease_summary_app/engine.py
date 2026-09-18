@@ -1788,7 +1788,7 @@ def populate_template(agreement: AgreementType, field_data: dict, output_path: s
             f"Please place the template in C:\\seedJura\\ or next to the executable."
         )
 
-    return _populate_template_raw(field_data, output_path)
+    return _populate_template_raw(field_data, output_path, template_path=template_path)
 
 
 # =============================================================================
@@ -1962,11 +1962,15 @@ def process_document(
         json.dump(result, f, indent=2)
     print(f"  Data: {json_path}")
 
-    # XML sidecar (GlobalFormVars format)
+    # XML sidecar (GlobalFormVars format for the lease type; the
+    # agreement's own field list for every other type, so a non-lease
+    # type's real fields appear in its XML instead of being silently
+    # dropped for not matching the lease's fixed schema)
     try:
-        from xml_export import field_data_to_xml_pretty
+        from xml_export import field_data_to_xml_pretty, XML_FIELDS
         xml_path = output_filename.replace(".docx", "_GlobalFormVars.xml")
-        xml_content = field_data_to_xml_pretty(full_field_data, normalized_dates)
+        type_xml_fields = XML_FIELDS if agreement.type_id == "lease" else list(agreement.fields.keys())
+        xml_content = field_data_to_xml_pretty(full_field_data, normalized_dates, xml_fields=type_xml_fields)
         with open(xml_path, "w", encoding="utf-8") as f:
             f.write(xml_content)
         result["xml_path"] = xml_path

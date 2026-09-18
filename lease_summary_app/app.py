@@ -49,7 +49,7 @@ from lease_summary_tool import ingest_document, redact_and_capture_pii, find_sni
 from field_variants import needs_verification
 
 # XML export
-from xml_export import field_data_to_xml, field_data_to_xml_pretty
+from xml_export import field_data_to_xml, field_data_to_xml_pretty, XML_FIELDS
 
 # Multi-file processing
 from multi_file import (
@@ -531,9 +531,13 @@ def _run_single_file_pipeline(
         job_meta["output_path"] = output_path
         job_meta["output_filename"] = os.path.basename(output_path)
 
-        # Generate XML
+        # Generate XML - GlobalFormVars schema for the lease type, the
+        # agreement's own field list for every other type (so a non-lease
+        # type's real fields appear instead of being dropped for not
+        # matching the lease's fixed schema).
         normalized_dates = job_meta.get("normalized_dates", {})
-        xml_content = field_data_to_xml_pretty(full_field_data, normalized_dates)
+        type_xml_fields = XML_FIELDS if agr.type_id == "lease" else list(agr.fields.keys())
+        xml_content = field_data_to_xml_pretty(full_field_data, normalized_dates, xml_fields=type_xml_fields)
         xml_filename = Path(filename).stem + "_GlobalFormVars.xml"
         xml_path = os.path.join(job_dir, xml_filename)
         with open(xml_path, "w", encoding="utf-8") as xf:
@@ -755,13 +759,21 @@ def _run_multi_file_pipeline(
     }
 
     try:
-        # Resolve agreement type
-        if agreement_type == "auto":
-            agr = get_type("lease")  # Default for multi-file
-        else:
+        # Resolve agreement type. "auto" can't run real detection until at
+        # least one document has been ingested (detect_agreement_type()
+        # needs text) - start with the lease type as a placeholder purely
+        # so classify_document() below has something to call with, then
+        # re-resolve for real against the first successfully-ingested
+        # document's text before anything past ingest happens. "lease"
+        # remains the final fallback if detection can't determine a type,
+        # matching the single-file pipeline's existing "auto" behavior.
+        explicit_agreement_type = agreement_type != "auto"
+        if explicit_agreement_type:
             agr = get_type(agreement_type)
             if not agr:
                 raise ProcessingError(f"Unknown agreement type: {agreement_type}", kind="general")
+        else:
+            agr = get_type("lease")
 
         job_meta["agreement_type"] = agr.type_id
         job_meta["agreement_name"] = agr.name
@@ -794,7 +806,18 @@ def _run_multi_file_pipeline(
                 skipped_files.append({"filename": filename, "reason": _friendly_error(e), "code": "E999"})
                 continue
 
-            doc_type, amend_num = classify_document(filename, raw_text)
+            # For "auto" mode, do the real type detection against the
+            # first successfully-ingested document, then re-resolve `agr`
+            # for every document that follows (including this one).
+            if not explicit_agreement_type:
+                detected = detect_agreement_type(raw_text, filename)
+                if detected:
+                    agr = get_type(detected) or agr
+                explicit_agreement_type = True  # only detect once, from the first doc
+                job_meta["agreement_type"] = agr.type_id
+                job_meta["agreement_name"] = agr.name
+
+            doc_type, amend_num = classify_document(filename, raw_text, agreement=agr)
             doc_info = DocumentInfo(
                 filepath=filepath,
                 filename=filename,
@@ -874,11 +897,34 @@ def _run_multi_file_pipeline(
         job_meta["phases"]["classify"] = "running"
         _save_meta(job_dir, job_meta)
 
-        lease_doc = next((d for d in doc_infos if d.doc_type == "lease"), None)
-        termination_doc = next((d for d in doc_infos if d.doc_type == "termination"), None)
+        # date_roles (from the agreement type's own config.json) drives
+        # which doc_type(s) count as the "origin" document (the original
+        # lease, the original PSA, etc.), which count as a termination
+        # notice, and which count as amendment-like documents competing
+        # for "the effective date" - see Phase 3C below. Falls back to the
+        # lease's own historical hardcoded values if a type has no
+        # date_roles configured, so this is safe for any type added later
+        # without one.
+        date_roles = agr.date_roles or {
+            "origin_types": ["lease"], "origin_date_field": "Date_Lease",
+            "origin_date_fallback_field": "Date_Commencment",
+            "termination_types": ["termination"], "termination_date_field": "Date_Termination",
+            "effective_types": ["amendment", "covid_amendment", "omnibus_agreement"],
+            "effective_date_field": "Amendment_Effective_Date",
+        }
+        origin_types = set(date_roles.get("origin_types", []))
+        termination_types = set(date_roles.get("termination_types", []))
+        effective_types = set(date_roles.get("effective_types", []))
+        origin_date_field = date_roles.get("origin_date_field", "")
+        origin_date_fallback_field = date_roles.get("origin_date_fallback_field", "")
+        termination_date_field = date_roles.get("termination_date_field", "")
+        effective_date_field = date_roles.get("effective_date_field", "")
+
+        lease_doc = next((d for d in doc_infos if d.doc_type in origin_types), None)
+        termination_doc = next((d for d in doc_infos if d.doc_type in termination_types), None)
 
         job_meta["phases"]["classify"] = (
-            f"done (lease: {lease_doc.filename if lease_doc else 'none'}, "
+            f"done (origin: {lease_doc.filename if lease_doc else 'none'}, "
             f"termination: {termination_doc.filename if termination_doc else 'none'}, "
             f"{len(doc_infos)} document(s) total)"
         )
@@ -899,7 +945,7 @@ def _run_multi_file_pipeline(
 
         doc_jobs = []
         for d in doc_infos:
-            if d.doc_type == "lease":
+            if d.doc_type in origin_types:
                 scope, require_all = dict(agr.fields), True
             elif d.doc_type == "guaranty":
                 scope, require_all = guaranty_field_scope, False
@@ -918,10 +964,11 @@ def _run_multi_file_pipeline(
 
         batch_results = analyze_documents_parallel(agr, doc_jobs, on_progress=_on_batch_progress)
 
+        _see_original_default = "See Original Lease." if agr.type_id == "lease" else "See Original Agreement."
         for d in doc_infos:
             field_data, anchors, dates, sections = batch_results.get(d.filename, ({}, {}, {}, {}))
             for fname in agr.fields:
-                field_data.setdefault(fname, "See Original Lease." if d is not lease_doc else "None.")
+                field_data.setdefault(fname, _see_original_default if d is not lease_doc else "None.")
             d.field_data = field_data
             d.normalized_dates = dates
             d.sections = sections
@@ -972,12 +1019,14 @@ def _run_multi_file_pipeline(
         _save_meta(job_dir, job_meta)
 
         for d in doc_infos:
-            if d.doc_type == "lease":
-                raw = d.field_data.get("Date_Lease", "") or d.field_data.get("Date_Commencment", "")
-            elif d.doc_type == "termination":
-                raw = d.field_data.get("Date_Termination", "")
-            elif d.doc_type in ("amendment", "covid_amendment", "omnibus_agreement"):
-                raw = d.field_data.get("Amendment_Effective_Date", "")
+            if d.doc_type in origin_types:
+                raw = d.field_data.get(origin_date_field, "") or (
+                    d.field_data.get(origin_date_fallback_field, "") if origin_date_fallback_field else ""
+                )
+            elif d.doc_type in termination_types:
+                raw = d.field_data.get(termination_date_field, "")
+            elif d.doc_type in effective_types:
+                raw = d.field_data.get(effective_date_field, "")
             else:
                 raw = ""
             d.execution_date_raw = raw
@@ -987,7 +1036,7 @@ def _run_multi_file_pipeline(
         effective_date_source = None
         best_date = None
         for d in doc_infos:
-            if d.doc_type not in ("amendment", "covid_amendment", "omnibus_agreement"):
+            if d.doc_type not in effective_types:
                 continue
             parsed = parse_strict_date(d.execution_date_raw)
             if parsed and (best_date is None or parsed > best_date):
@@ -995,7 +1044,7 @@ def _run_multi_file_pipeline(
                 effective_date_source = d
 
         job_meta["phases"]["dates"] = (
-            f"done (commencement: {lease_doc.filename if lease_doc else 'none'}, "
+            f"done (origin: {lease_doc.filename if lease_doc else 'none'}, "
             f"effective: {effective_date_source.filename if effective_date_source else 'none'}, "
             f"termination: {termination_doc.filename if termination_doc else 'none'})"
         )
@@ -1011,8 +1060,18 @@ def _run_multi_file_pipeline(
         job_meta["phases"]["merge"] = "running"
         _save_meta(job_dir, job_meta)
 
-        sorted_docs = sort_documents(doc_infos)
-        merged_fields = merge_fields(sorted_docs, effective_date_source=effective_date_source)
+        sorted_docs = sort_documents(doc_infos, origin_types=origin_types or None)
+        origin_only_fields = set(date_roles.get("origin_only_fields", [])) or None
+        termination_only_fields = set(date_roles.get("termination_only_fields", [])) or None
+        merged_fields = merge_fields(
+            sorted_docs,
+            effective_date_source=effective_date_source,
+            effective_date_field=effective_date_field or "Amendment_Effective_Date",
+            origin_only_fields=origin_only_fields,
+            origin_types=origin_types or None,
+            termination_only_fields=termination_only_fields,
+            termination_types=termination_types or None,
+        )
         job_meta["phases"]["merge"] = f"done ({len(merged_fields)} fields merged)"
         _save_meta(job_dir, job_meta)
 
@@ -1041,23 +1100,23 @@ def _run_multi_file_pipeline(
             touched_source_docs[fname] = source_doc
 
         # 1. Priority date facts with no eligible/validated document.
-        if lease_doc and not parse_strict_date(lease_doc.execution_date_raw):
-            _flag_field("Date_Lease", lease_doc.execution_date_raw or "None.", lease_doc)
-        if termination_doc and not parse_strict_date(termination_doc.execution_date_raw):
-            _flag_field("Date_Termination", termination_doc.execution_date_raw or "None.", termination_doc)
-        if effective_date_source is None:
-            # No amendment/covid_amendment/omnibus_agreement document had a
-            # validated date at all - ask about whichever such document
-            # exists and looks most likely to be the latest one (by
-            # amendment number, since no date can be trusted yet); if
-            # multiple exist the user can correct any of them and the job
-            # will re-resolve the actual latest date from what they enter.
-            candidates = [d for d in doc_infos if d.doc_type in ("amendment", "covid_amendment", "omnibus_agreement")]
+        if lease_doc and origin_date_field and not parse_strict_date(lease_doc.execution_date_raw):
+            _flag_field(origin_date_field, lease_doc.execution_date_raw or "None.", lease_doc)
+        if termination_doc and termination_date_field and not parse_strict_date(termination_doc.execution_date_raw):
+            _flag_field(termination_date_field, termination_doc.execution_date_raw or "None.", termination_doc)
+        if effective_date_source is None and effective_date_field:
+            # No amendment-like document had a validated date at all - ask
+            # about whichever such document exists and looks most likely
+            # to be the latest one (by amendment number, since no date can
+            # be trusted yet); if multiple exist the user can correct any
+            # of them and the job will re-resolve the actual latest date
+            # from what they enter.
+            candidates = [d for d in doc_infos if d.doc_type in effective_types]
             candidates.sort(key=lambda d: d.amendment_number or 0, reverse=True)
             for d in candidates:
-                raw = d.field_data.get("Amendment_Effective_Date", "")
-                if raw and raw.strip().lower() not in ("none.", "none", "see original lease.", ""):
-                    _flag_field("Amendment_Effective_Date", raw, d)
+                raw = d.field_data.get(effective_date_field, "")
+                if raw and raw.strip().lower() not in ("none.", "none", "see original lease.", "see original agreement.", ""):
+                    _flag_field(effective_date_field, raw, d)
                     break
 
         # 2. Any other field whose value touches hand-written source text.
@@ -1114,12 +1173,12 @@ def _run_multi_file_pipeline(
                 # downstream normalized-date badges/history stay consistent.
                 if source_doc is not None:
                     source_doc.field_data[fname] = corrected_value
-                    if fname in ("Date_Lease", "Date_Termination", "Amendment_Effective_Date"):
+                    if fname in (origin_date_field, termination_date_field, effective_date_field):
                         source_doc.execution_date_raw = corrected_value
                         parsed = parse_strict_date(corrected_value)
                         source_doc.execution_date = parsed.strftime("%m/%d/%Y") if parsed else None
                         source_doc.normalized_dates[fname] = source_doc.execution_date or ""
-                        if fname == "Amendment_Effective_Date" and effective_date_source is None:
+                        if fname == effective_date_field and effective_date_source is None:
                             effective_date_source = source_doc
 
             # A field the human just confirmed/corrected must never be
@@ -1350,10 +1409,12 @@ def _run_multi_file_pipeline(
         job_meta["output_path"] = output_path
         job_meta["output_filename"] = output_filename
 
-        # Generate XML
+        # Generate XML - GlobalFormVars schema for the lease type, the
+        # agreement's own field list for every other type.
         xml_filename = f"{folder_name}_multi_GlobalFormVars.xml"
         xml_path = os.path.join(job_dir, xml_filename)
-        xml_content = field_data_to_xml_pretty(final_field_data, merged_dates)
+        type_xml_fields = XML_FIELDS if agr.type_id == "lease" else list(agr.fields.keys())
+        xml_content = field_data_to_xml_pretty(final_field_data, merged_dates, xml_fields=type_xml_fields)
         with open(xml_path, "w", encoding="utf-8") as xf:
             xf.write(xml_content)
         job_meta["xml_filename"] = xml_filename
@@ -1646,10 +1707,17 @@ def download_xml(job_id: str, pretty: bool = False):
 
     normalized_dates = meta.get("normalized_dates", {})
 
+    # GlobalFormVars schema for the lease type, the agreement's own field
+    # list for every other type (so a non-lease type's real fields appear
+    # instead of being dropped for not matching the lease's fixed schema).
+    type_id = meta.get("agreement_type", "lease")
+    agr_for_xml = get_type(type_id)
+    type_xml_fields = XML_FIELDS if (not agr_for_xml or type_id == "lease") else list(agr_for_xml.fields.keys())
+
     if pretty:
-        xml_content = field_data_to_xml_pretty(field_data, normalized_dates)
+        xml_content = field_data_to_xml_pretty(field_data, normalized_dates, xml_fields=type_xml_fields)
     else:
-        xml_content = field_data_to_xml(field_data, normalized_dates)
+        xml_content = field_data_to_xml(field_data, normalized_dates, xml_fields=type_xml_fields)
 
     # Generate filename from source
     base = Path(meta["filename"]).stem
