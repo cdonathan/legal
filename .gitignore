@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# SAM build artifacts
+.aws-sam/
+
+# Node (packages/*, once populated)
+node_modules/
+
+# Secrets — never commit real keys, even local test ones
+*.env
+.env.*
+!*.env.example
+openai_api_key.txt
+*_api_key.txt
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+*.swp

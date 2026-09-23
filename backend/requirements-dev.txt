@@ -1,0 +1,7 @@
+# Shared dev/test dependencies for backend/functions/summary/*.
+# Per-function runtime dependencies belong in that function's own requirements.txt
+# (SAM builds each function's CodeUri independently).
+
+pytest>=8.0.0
+boto3>=1.34.0
+moto>=5.0.0
