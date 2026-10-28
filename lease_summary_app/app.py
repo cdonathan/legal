@@ -836,16 +836,18 @@ def _run_multi_file_pipeline(
                 f"None of the {len(files)} files could be processed. {reasons}"
             )
 
-        # Phase 1B: Signature gate - a document with no signature block near
-        # its end is not an executed/finalized agreement and cannot be
+        # Phase 1B: Signature gate - a document with no signature
+        # indicator is not an executed/finalized agreement and cannot be
         # trusted for any field (a draft's "Effective Date" line may be
         # blank, wrong, or superseded). Exclude such documents from the
         # pipeline entirely rather than merely flagging them, per explicit
-        # instruction. has_signature() only looks at the last
-        # SIGNATURE_SEARCH_WINDOW_CHARS characters of the document, which
-        # both keeps this cheap and matches how these documents are
-        # actually laid out (signature block on the last page, or
-        # second-to-last if the last page is blank).
+        # instruction. has_signature() checks high-confidence markers
+        # ("in witness whereof", "/s/", "docusign") across the whole
+        # document - trailing exhibits/attachments can't hide those - and
+        # falls back to a bounded trailing-window check for generic
+        # markers ("signed", "signature", etc.) to avoid false positives
+        # from unrelated boilerplate elsewhere in the body. See
+        # WEAK_SIGNATURE_SEARCH_WINDOW_CHARS in multi_file.py.
         unsigned_docs = [d for d in doc_infos if not has_signature(d.text)]
         if unsigned_docs:
             doc_infos = [d for d in doc_infos if has_signature(d.text)]

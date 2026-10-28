@@ -140,23 +140,44 @@ def is_confident_date(value: Optional[str]) -> bool:
 # full document text keeps regex work bounded and matches how these
 # documents are actually written.
 DATE_SEARCH_WINDOW_CHARS = 10_000
-SIGNATURE_SEARCH_WINDOW_CHARS = 10_000
 
-# Keyword indicators that a document's signature block is present, checked
-# only within the last SIGNATURE_SEARCH_WINDOW_CHARS characters (see
-# has_signature()). A document with none of these near its end has no
-# signature page in its extracted text and is treated as unsigned/
-# unfinalized - excluded from the pipeline entirely rather than
-# contributing unreliable field data from an unexecuted draft.
-_SIGNATURE_KEYWORDS = (
+# Signature detection is split into two confidence tiers (see
+# has_signature() below) instead of one fixed window, because no single
+# window size is safe for both directions of error:
+#   - Too small: a genuinely signed lease with exhibits/attachments bound
+#     in AFTER the signature page (certificates of insurance, SNDA/
+#     estoppel forms, rules & regs, guaranty, etc.) gets its real
+#     signature block pushed outside the window and is wrongly excluded
+#     as an "unsigned draft" (seen in practice on a 65-page/221k-char
+#     lease whose signature page sat ~13,000-33,000 chars from the end).
+#   - Too large/unbounded: generic words like "signed"/"signature"/
+#     "authorized representative" show up in ordinary lease boilerplate
+#     (e.g. a counterparts clause, a notices clause, or a blank unexecuted
+#     exhibit form like "Exhibit F - Form of SNDA") anywhere in the body,
+#     so searching the whole document for them risks treating an actual
+#     unsigned draft as executed.
+# STRONG markers practically never appear outside a real execution block,
+# so they're searched across the ENTIRE document - no exhibit packet of
+# any size can hide them. WEAK markers are generic enough to carry real
+# false-positive risk, so they stay bounded to a trailing window.
+WEAK_SIGNATURE_SEARCH_WINDOW_CHARS = 50_000
+
+# High-confidence markers: searched across the whole document, unbounded.
+_STRONG_SIGNATURE_KEYWORDS = (
     "in witness whereof",
+    "/s/",
+    "docusign",
+)
+
+# Lower-confidence markers: only trusted within the last
+# WEAK_SIGNATURE_SEARCH_WINDOW_CHARS characters, where a false hit from
+# unrelated boilerplate elsewhere in the document can't reach.
+_WEAK_SIGNATURE_KEYWORDS = (
     "signature",
     "signed",
     "authorized signatory",
     "duly authorized",
     "print name",
-    "docusign",
-    "/s/",
     # Letter-style documents (e.g. a termination notice sent as a short
     # business letter) don't use formal "IN WITNESS WHEREOF" contract
     # language - they close with an ordinary letter sign-off followed by a
@@ -172,16 +193,26 @@ _SIGNATURE_KEYWORDS = (
 
 def has_signature(text: str) -> bool:
     """
-    True if the last SIGNATURE_SEARCH_WINDOW_CHARS characters of `text`
-    contain a recognizable signature-block indicator. This is the gate for
-    "is this document an executed/finalized version we can rely on" - a
-    document with no signature block near its end is excluded from the
+    True if `text` contains a recognizable signature-block indicator. This
+    is the gate for "is this document an executed/finalized version we can
+    rely on" - a document with no signature indicator is excluded from the
     pipeline entirely (see the ingest phase in _run_multi_file_pipeline()).
+
+    Two-tier check: STRONG markers (e.g. "in witness whereof", "/s/",
+    "docusign") are searched across the full document text, since trailing
+    exhibits/attachments of any length can't push a real signature page out
+    of reach. WEAK/generic markers (e.g. "signed", "signature") are only
+    trusted within the last WEAK_SIGNATURE_SEARCH_WINDOW_CHARS characters,
+    since searching the whole document for them would pick up unrelated
+    boilerplate mentions and wrongly treat unsigned drafts as executed.
     """
     if not text:
         return False
-    window = text[-SIGNATURE_SEARCH_WINDOW_CHARS:].lower()
-    return any(kw in window for kw in _SIGNATURE_KEYWORDS)
+    lowered = text.lower()
+    if any(kw in lowered for kw in _STRONG_SIGNATURE_KEYWORDS):
+        return True
+    window = lowered[-WEAK_SIGNATURE_SEARCH_WINDOW_CHARS:]
+    return any(kw in window for kw in _WEAK_SIGNATURE_KEYWORDS)
 
 
 @dataclass
