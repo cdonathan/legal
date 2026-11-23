@@ -54,7 +54,12 @@
     "operating expenses.*shall include.*but not be limited to",
     "operating expenses.*shall include",
     "operating expenses.*mean.*all costs",
-    "opex.*shall include"
+    "opex.*shall include",
+    "additional rent.*in addition to the base rent",
+    "absolute net lease",
+    "triple net lease",
+    "net,\\s*net,\\s*net",
+    "repairs,\\s*restoration,\\s*replacements"
   ],
   "OPEX_Exclusion": [
     "operating expenses.*shall not include",
