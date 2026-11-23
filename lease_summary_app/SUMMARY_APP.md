@@ -1,5 +1,16 @@
 # SeedJura Agreement Summary App
 
+> **Before changing extraction behavior, read the session summaries first.**
+> `SESSION_SUMMARY_2026-09-16.md` and `SESSION_SUMMARY_2026-11-17.md`
+> document real bugs found by testing against actual attorney-reviewed
+> leases (not synthetic examples) — document misclassification, date-field
+> merge pinning, a retry pass that clobbers correctly-merged cross-document
+> values, and several net-lease/NNN-specific field gaps. Several of these
+> were subtle enough to look correct (a non-empty, plausible-sounding
+> value) while actually being wrong or pulled from the wrong document -
+> re-introducing a similar change without reading that history is likely
+> to reopen one of these.
+
 ## What It Does
 
 The SeedJura Agreement Summary App takes legal agreements (PDFs or Word documents), reads them using AI, and produces a structured summary document. It extracts every key term — parties, dates, rent, options, obligations — directly from the source text and populates a formatted Word template.
