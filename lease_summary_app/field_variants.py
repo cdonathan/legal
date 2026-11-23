@@ -185,6 +185,8 @@ def doc_type_label(doc_type: str, amendment_number: Optional[int] = None, fallba
         return "Change Request"
     if doc_type == "resolution":
         return "Resolution"
+    if doc_type == "commencement_notice":
+        return "Commencement Date Confirmation"
     return fallback or (doc_type.replace("_", " ").title() if doc_type else "Document")
 
 

@@ -323,6 +323,19 @@ def _classify_document_generic(fname_upper: str, header_upper: str, agreement) -
     return "other", amendment_num
 
 
+# Matches a lease's own self-referential opening recital, e.g. 'This Lease
+# ("Lease") is dated May 1, 2024...'. Some real lease documents never use
+# the literal phrase "LEASE AGREEMENT" anywhere in their header - they just
+# call themselves "this Lease" - so the generic LEASE AGREEMENT keyword
+# check below would otherwise misclassify them as doc_type "other" and
+# demote them out of the full-field extraction pass. This pattern is
+# intentionally narrow (bounded gap, case-insensitive) so it only matches a
+# document's own opening declaration of itself, not a third-party
+# reference/citation to "the Lease" elsewhere (e.g. "...Lease Agreement
+# (the "Lease") dated..., between...", which a Notice document would use).
+_LEASE_SELF_REFERENTIAL_RE = re.compile(r'THIS\s+LEASE\b.{0,60}\bIS\s+DATED', re.IGNORECASE)
+
+
 def classify_document(filename: str, text_header: str = "", agreement=None) -> Tuple[str, Optional[int]]:
     """
     Classify a document by type and extract amendment number if applicable.
@@ -423,7 +436,35 @@ def classify_document(filename: str, text_header: str = "", agreement=None) -> T
         doc_type = "resolution"
     elif "EXTENSION" in fname or "EXTENSION" in header:
         doc_type = "amendment"  # Extensions are amendments
-    elif "LEASE AGREEMENT" in fname or "LEASE AGREEMENT" in header:
+    elif (
+        "COMMENCEMENT DATE NOTICE" in fname
+        or "CONFIRMATION OF COMMENCEMENT DATE" in header
+    ):
+        # A dedicated "Commencement Date Notice"/"Confirmation of
+        # Commencement Date" document: the lease itself often only defines
+        # the Commencement Date conditionally (e.g. "the date Landlord
+        # delivers possession"), and this document is the one that later
+        # confirms the actual calendar date that resulted. It is NOT the
+        # origin lease (so it must not win Date_Lease/LeaseAgr_Name), but
+        # it IS the authoritative source for the resolved Date_Commencment
+        # value - see the matching exception in merge_fields() below.
+        doc_type = "commencement_notice"
+    elif "NOTICE" in fname:
+        # Notices (e.g. a Commencement Date Notice) routinely open with a
+        # third-party citation like "Re: Lease Agreement (the "Lease")
+        # dated February 12, 2024, between..." - which would otherwise
+        # match the generic LEASE AGREEMENT signal below and get the
+        # notice misclassified as the origin lease document itself
+        # (displacing the real lease, which gets demoted to a restricted
+        # secondary extraction pass). Treat notices as a secondary/other
+        # document instead, so the real lease (matched by the
+        # self-referential preamble check below) remains the sole origin.
+        doc_type = "other"
+    elif (
+        "LEASE AGREEMENT" in fname
+        or "LEASE AGREEMENT" in header
+        or _LEASE_SELF_REFERENTIAL_RE.search(header)
+    ):
         doc_type = "amendment" if amendment_num else "lease"
     else:
         doc_type = "other"
@@ -539,6 +580,19 @@ def sort_documents(docs: List[DocumentInfo], origin_types: Optional[Set[str]] = 
 # even when the value happens to be identical, mislabeling its source.
 LEASE_ORIGIN_ONLY_FIELDS = {"Date_Lease", "LeaseAgr_Name", "Date_Commencment"}
 
+# Narrow, field-specific exception to the origin-only pin above: a
+# "Commencement Date Notice"/"Confirmation of Commencement Date" document
+# (doc_type "commencement_notice", see classify_document()) is allowed to
+# supply Date_Commencment even though it isn't the origin lease itself.
+# This is the ONLY field such a document may override - it still can't
+# touch Date_Lease or LeaseAgr_Name, which remain pinned to the lease
+# alone. Without this, a lease whose own Commencement Date clause is
+# purely conditional (e.g. "the date Landlord delivers possession") would
+# have no way to ever show the actual resolved calendar date once a
+# separate confirmation document states it.
+COMMENCEMENT_DATE_OVERRIDE_FIELD = "Date_Commencment"
+COMMENCEMENT_DATE_CONFIRMATION_TYPES = {"commencement_notice"}
+
 # Similar pin, but for facts that only make sense on a Termination Notice.
 TERMINATION_ONLY_FIELDS = {"Date_Termination"}
 
@@ -622,9 +676,16 @@ def merge_fields(
             if skip_empty and (not value or value.strip().lower() in skip_values):
                 continue
 
-            # Origin-only facts can only come from the origin document.
+            # Origin-only facts can only come from the origin document -
+            # except Date_Commencment, which a dedicated commencement-date
+            # confirmation document is also allowed to supply (see
+            # COMMENCEMENT_DATE_CONFIRMATION_TYPES above).
             if field_name in origin_only_fields and doc.doc_type not in origin_types:
-                continue
+                if not (
+                    field_name == COMMENCEMENT_DATE_OVERRIDE_FIELD
+                    and doc.doc_type in COMMENCEMENT_DATE_CONFIRMATION_TYPES
+                ):
+                    continue
 
             # Termination-only facts can only come from a termination notice.
             if field_name in termination_only_fields and doc.doc_type not in termination_types:
