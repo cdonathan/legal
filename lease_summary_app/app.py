@@ -1256,19 +1256,39 @@ def _run_multi_file_pipeline(
         completeness = check_completeness(agr, current_values, call3_interpretations, combined_flagged)
         job_meta["completeness"] = completeness
 
-        if completeness["needs_retry"]:
+        # This retry pass only ever re-reads ONE document's text
+        # (retry_source_doc below - the lease, almost always). A field whose
+        # CURRENT merged value already came from a DIFFERENT document (e.g.
+        # Guaranty_Term from the standalone Guaranty Agreement, or
+        # Date_Commencment from a dedicated Commencement Date Confirmation
+        # doc - see COMMENCEMENT_DATE_CONFIRMATION_TYPES in multi_file.py)
+        # must be excluded from this pass: re-asking against only the
+        # lease's text can never correctly answer a fact that lives in a
+        # different document, so at best it's a wasted call and at worst it
+        # silently clobbers an already-correct, properly-sourced value with
+        # whatever unrelated text the lease happens to contain. Being
+        # flagged by per-document verify_and_expand (which runs BEFORE the
+        # merge, against each document individually) does not mean the
+        # final MERGED value is actually wrong.
+        retry_source_doc = lease_doc or (sorted_docs[0] if sorted_docs else None)
+        protected_from_retry = {
+            fname for fname, fh in merged_fields.items()
+            if retry_source_doc is not None and fh.current_source != retry_source_doc.filename
+        }
+        retry_needed = [f for f in completeness["needs_retry"] if f not in protected_from_retry]
+
+        if retry_needed:
             job_meta["phases"]["retry"] = "running"
             _save_meta(job_dir, job_meta)
-            retry_source_doc = lease_doc or (sorted_docs[0] if sorted_docs else None)
             if retry_source_doc:
                 recovered_field_data, retry_count = ai_retry_fields(
-                    agr, dict(current_values), retry_source_doc.text, completeness["needs_retry"]
+                    agr, dict(current_values), retry_source_doc.text, retry_needed
                 )
                 job_meta["phases"]["retry"] = f"done (recovered {retry_count})"
                 if retry_count > 0:
                     retried_fields = {
                         f: v for f, v in recovered_field_data.items()
-                        if f in completeness["needs_retry"] and v
+                        if f in retry_needed and f not in protected_from_retry and v
                     }
                     for fname, val in retried_fields.items():
                         if fname in merged_fields:
