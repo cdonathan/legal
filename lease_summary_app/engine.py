@@ -39,6 +39,7 @@ from lease_summary_tool import (
     _find_sentence_start,
     _find_sentence_end,
     _verify_ai_anchor,
+    _find_all_ai_anchor_positions,
     populate_template as _populate_template_raw,
     AI_MODEL,
 )
@@ -146,7 +147,7 @@ FIELDS TO EXTRACT (field_name: description):
 {fields_list}
 
 DOCUMENT TEXT:
-{text[:80000]}
+{text[:500000]}
 
 Respond with ONLY a valid JSON object. No markdown, no explanation."""
 
@@ -455,7 +456,7 @@ def analyze_with_ai(
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt},
         ],
-        max_tokens=16000,
+        max_tokens=16384,
     )
 
     raw_response = response.choices[0].message.content.strip()
@@ -643,7 +644,7 @@ def analyze_combined_with_ai(
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt},
         ],
-        max_tokens=16000,
+        max_tokens=16384,
     )
 
     raw_response = response.choices[0].message.content.strip()
@@ -1046,12 +1047,25 @@ def verify_and_expand(
                 positions[field_name] = pos
             continue
 
-        # Try AI anchor phrase first
+        # Try AI anchor phrase first. A short/generic anchor phrase can
+        # legitimately appear more than once in a document (most commonly:
+        # once in a table of contents heading, again at the actual
+        # clause) - try every occurrence and keep the first one whose
+        # extracted text actually validates against field_anchors, instead
+        # of blindly taking the first occurrence in the document (which
+        # for a ToC-adjacent phrase is often the ToC itself, producing a
+        # wrong/confusing result - the extracted "value" doesn't match
+        # what the screenshot ends up showing the user).
         anchor_phrase = anchors.get(field_name, "")
         anchor_used = False
         if anchor_phrase and len(anchor_phrase) > 10:
-            anchor_pos = _verify_ai_anchor(anchor_phrase, source_text)
-            if anchor_pos >= 0:
+            anchor_positions = _find_all_ai_anchor_positions(anchor_phrase, source_text)
+            best_extracted = None
+            best_sentence_span = None
+            fallback_extracted = None
+            fallback_sentence_span = None
+
+            for anchor_pos in anchor_positions:
                 orig_start = _map_normalized_pos_to_original(source_text, anchor_pos)
                 sentence_start = _find_sentence_start(source_text, orig_start)
                 sentence_end = _find_sentence_end(source_text, orig_start + 50)
@@ -1069,8 +1083,14 @@ def verify_and_expand(
                     else:
                         extracted = extracted[:600]
 
-                # Validate with field anchors if available
-                if field_name in field_anchors and len(extracted) > 15:
+                if len(extracted) <= 15:
+                    continue
+
+                if fallback_extracted is None:
+                    fallback_extracted = extracted
+                    fallback_sentence_span = (sentence_start, sentence_end)
+
+                if field_name in field_anchors:
                     norm_ext = _normalize_text(extracted)
                     anchor_relevant = False
                     for pattern in field_anchors[field_name]:
@@ -1080,18 +1100,28 @@ def verify_and_expand(
                                 break
                         except re.error:
                             continue
-                    if not anchor_relevant:
-                        flagged_fields.append(field_name)
-                    else:
-                        verified_data[field_name] = extracted
-                        report["anchor_verified"] += 1
-                        positions[field_name] = (sentence_start, sentence_end)
-                        anchor_used = True
-                elif len(extracted) > 15:
-                    verified_data[field_name] = extracted
-                    report["anchor_verified"] += 1
-                    positions[field_name] = (sentence_start, sentence_end)
-                    anchor_used = True
+                    if anchor_relevant:
+                        best_extracted = extracted
+                        best_sentence_span = (sentence_start, sentence_end)
+                        break
+                else:
+                    # No field_anchors to validate against - the first
+                    # occurrence with usable length is as good a guess as
+                    # any; keep original behavior (don't scan further).
+                    best_extracted = extracted
+                    best_sentence_span = (sentence_start, sentence_end)
+                    break
+
+            if best_extracted is not None:
+                verified_data[field_name] = best_extracted
+                report["anchor_verified"] += 1
+                positions[field_name] = best_sentence_span
+                anchor_used = True
+            elif field_name in field_anchors and fallback_extracted is not None:
+                # Every occurrence was tried and none validated against
+                # field_anchors - flag for human review rather than
+                # silently using a possibly-wrong occurrence.
+                flagged_fields.append(field_name)
 
         if anchor_used:
             continue
@@ -1697,7 +1727,7 @@ FIELDS TO FIND (with hints on where to look):
 {fields_desc}
 
 DOCUMENT TEXT:
-{source_text[:80000]}
+{source_text[:500000]}
 
 Return a JSON object mapping field names to extracted text. No markdown."""
 

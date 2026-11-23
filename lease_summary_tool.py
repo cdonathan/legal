@@ -553,11 +553,52 @@ def find_snippet_screenshot(file_path: str, snippet: str, dpi: int = 250) -> Opt
         if not _is_degenerate(frag):
             candidates.append(frag)
 
+    # Multi-word phrase candidates above rely on page.search_for() matching
+    # a literal run of words - but a document's OWN text layer sometimes
+    # inserts a line break in the middle of what looks like one continuous
+    # phrase in the flattened text used elsewhere in the pipeline (e.g.
+    # "...is\n50\n, 20J_ (\"Commencement Date\")" - notice "J_]" doesn't
+    # even appear as one token; the flattened/ingested text reflows it
+    # differently than the PDF's own per-page text layer does). When every
+    # multi-word candidate fails on every page, fall back to single
+    # distinctive words from the snippet - immune to this reflow mismatch
+    # since there's no adjacency to break.
+    _COMMON_WORDS = {
+        'the', 'and', 'this', 'that', 'with', 'from', 'shall', 'will',
+        'for', 'are', 'was', 'were', 'have', 'has', 'had', 'not', 'any',
+        'all', 'such', 'which', 'their', 'its', 'they', 'them',
+    }
+    word_candidates = []
+    for w in words:
+        clean_w = re.sub(r'[^A-Za-z0-9]', '', w)
+        if len(clean_w) >= 6 and clean_w.lower() not in _COMMON_WORDS:
+            word_candidates.append(clean_w)
+
     mat = pymupdf.Matrix(dpi / 72, dpi / 72)
+
+    def _render_match(page, rects):
+        # Use the FULL PAGE WIDTH and a generous vertical window around
+        # the match, rather than a tight box around just the matched
+        # words. Older lease templates (like this one) sometimes lay
+        # text out with heavy justification/one-word-per-line spacing,
+        # so a tightly-padded crop can miss the very content the user
+        # needs to see (e.g. a hand-written date one line below/above
+        # the matched anchor phrase). A generous crop trades a bit of
+        # extra context for reliably including the relevant text.
+        rect = rects[0]
+        v_pad = 220
+        page_rect = page.rect
+        clip = pymupdf.Rect(
+            page_rect.x0,
+            max(page_rect.y0, rect.y0 - v_pad),
+            page_rect.x1,
+            min(page_rect.y1, rect.y1 + v_pad),
+        )
+        pix = page.get_pixmap(matrix=mat, clip=clip)
+        return pix.tobytes("png")
 
     for page_num in range(len(doc)):
         page = doc[page_num]
-        rects = []
         for candidate in candidates:
             if not candidate:
                 continue
@@ -571,37 +612,61 @@ def find_snippet_screenshot(file_path: str, snippet: str, dpi: int = 250) -> Opt
             # catches the most obvious cases) - skip it rather than crop
             # around an essentially-random match.
             if found and len(found) <= 5:
-                rects = found
-                break
-        if rects:
-            # Use the FULL PAGE WIDTH and a generous vertical window around
-            # the match, rather than a tight box around just the matched
-            # words. Older lease templates (like this one) sometimes lay
-            # text out with heavy justification/one-word-per-line spacing,
-            # so a tightly-padded crop can miss the very content the user
-            # needs to see (e.g. a hand-written date one line below/above
-            # the matched anchor phrase). A generous crop trades a bit of
-            # extra context for reliably including the relevant text.
-            rect = rects[0]
-            v_pad = 220
-            page_rect = page.rect
-            clip = pymupdf.Rect(
-                page_rect.x0,
-                max(page_rect.y0, rect.y0 - v_pad),
-                page_rect.x1,
-                min(page_rect.y1, rect.y1 + v_pad),
-            )
-            pix = page.get_pixmap(matrix=mat, clip=clip)
-            png_bytes = pix.tobytes("png")
-            doc.close()
-            return png_bytes
+                png_bytes = _render_match(page, found)
+                doc.close()
+                return png_bytes
 
-    # Fallback: nothing matched on any page - return the first page as-is
-    # so the user still has something to look at.
-    pix = doc[0].get_pixmap(matrix=mat)
-    png_bytes = pix.tobytes("png")
+    # Multi-word phrase candidates found nothing anywhere (the document's
+    # own text layer reflows differently than the flattened text the
+    # candidates were built from - e.g. a line break lands in the middle
+    # of what looks like one continuous phrase). Fall back to scoring
+    # EVERY page by how many single distinctive words from the snippet it
+    # contains, and use whichever page scores highest - NOT the first page
+    # that matches even one word. This matters specifically for documents
+    # with a table of contents that restates section names verbatim (e.g.
+    # "Rental Commencement Date" as a ToC entry) - a single word like
+    # "Commencement" matching the ToC must not win over the real clause
+    # just for appearing on an earlier page; the real clause page will
+    # contain many more of the snippet's distinctive words together.
+    if word_candidates:
+        page_scores = {}  # page_num -> (match_count, first_rects)
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            count = 0
+            first_rects = None
+            for candidate in word_candidates:
+                try:
+                    found = page.search_for(candidate)
+                except Exception:
+                    found = []
+                if found and len(found) <= 2:
+                    count += 1
+                    if first_rects is None:
+                        first_rects = found
+            if count > 0:
+                page_scores[page_num] = (count, first_rects)
+
+        if page_scores:
+            best_page_num = max(page_scores, key=lambda p: page_scores[p][0])
+            best_count, best_rects = page_scores[best_page_num]
+            # Require at least 2 distinctive words to agree - a single
+            # coincidental word match (like a ToC entry) isn't enough
+            # signal to point the user at a specific page with confidence.
+            if best_count >= 2:
+                png_bytes = _render_match(doc[best_page_num], best_rects)
+                doc.close()
+                return png_bytes
+
+    # Nothing matched anywhere in the document with enough confidence - do
+    # NOT default to page 0 (or any other page). A silent fallback here
+    # previously showed the user a page that had nothing to do with the
+    # flagged field (e.g. a Table of Contents page, just because it's
+    # first, or because a single word happened to match it) with no
+    # indication the match had actually failed - worse than no screenshot
+    # at all, since it looks authoritative. Return None so the caller can
+    # render "no preview available" instead.
     doc.close()
-    return png_bytes
+    return None
 
 
 def _ocr_pdf(file_path: str) -> str:
@@ -1057,7 +1122,7 @@ FIELDS TO EXTRACT (field_name: description):
 {fields_list}
 
 LEASE DOCUMENT TEXT:
-{lease_text[:80000]}
+{lease_text[:500000]}
 
 Respond with ONLY a valid JSON object. No markdown, no explanation."""
 
@@ -1091,7 +1156,7 @@ def analyze_lease_with_ai(lease_text: str, doc_type: str = "lease") -> tuple:
             {"role": "user", "content": prompt},
         ],
         temperature=0.1,
-        max_tokens=16000,
+        max_tokens=16384,
     )
 
     raw_response = response.choices[0].message.content.strip()
@@ -1649,13 +1714,43 @@ def _keyword_fallback_search(field_name: str, source_text: str) -> str:
 
 def _verify_ai_anchor(anchor_phrase: str, source_text: str) -> int:
     # Verify the AI reported anchor phrase exists in source.
-    # Returns the position if found, -1 if not.
+    # Returns the FIRST position found, -1 if not found anywhere. Kept for
+    # backward compatibility with any other caller - see
+    # _find_all_ai_anchor_positions() for the multi-occurrence version used
+    # by verify_and_expand(), which needs to disambiguate when a phrase
+    # appears more than once (e.g. once in a table of contents heading and
+    # again at the actual clause).
+    positions = _find_all_ai_anchor_positions(anchor_phrase, source_text)
+    return positions[0] if positions else -1
+
+
+def _find_all_ai_anchor_positions(anchor_phrase: str, source_text: str, max_positions: int = 5) -> list:
+    """
+    Like _verify_ai_anchor(), but returns every occurrence of the anchor
+    phrase in source_text (normalized-text positions), not just the first.
+    A short/generic anchor phrase can legitimately appear more than once in
+    a document - e.g. a lease's own Table of Contents restates every
+    section heading, so a phrase like "Reference Provisions" can match
+    both the ToC entry and the actual clause. Returning every occurrence
+    lets the caller pick whichever one actually looks like real clause
+    text (see verify_and_expand()'s field_anchors validation) instead of
+    blindly taking the first (often wrong, ToC-adjacent) match.
+    Capped at max_positions to avoid pathological cases where an anchor is
+    too generic and matches dozens of times.
+    """
     if not anchor_phrase or len(anchor_phrase) < 5:
-        return -1
+        return []
     norm_anchor = _normalize_text(anchor_phrase)
     norm_source = _normalize_text(source_text)
-    idx = norm_source.find(norm_anchor)
-    return idx
+    positions = []
+    start = 0
+    while len(positions) < max_positions:
+        idx = norm_source.find(norm_anchor, start)
+        if idx == -1:
+            break
+        positions.append(idx)
+        start = idx + 1
+    return positions
 
 
 # Fields that should almost always exist in a commercial lease.
@@ -1746,7 +1841,7 @@ FIELDS TO FIND (with hints on where to look):
 {fields_desc}
 
 DOCUMENT TEXT:
-{source_text[:80000]}
+{source_text[:500000]}
 
 Return a JSON object mapping field names to extracted text. No markdown."""
 
