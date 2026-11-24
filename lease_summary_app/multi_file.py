@@ -215,6 +215,64 @@ def has_signature(text: str) -> bool:
     return any(kw in window for kw in _WEAK_SIGNATURE_KEYWORDS)
 
 
+# A lease/agreement SUMMARY report (this app's own generated output, an
+# attorney's reference summary of the same deal, an earlier draft critique,
+# etc.) is not a source agreement and must never be ingested as one - but
+# it can slip past has_signature() above, because a summary report's own
+# "Raw Data" column routinely quotes a source document's execution
+# language verbatim (e.g. "IN WITNESS WHEREOF..."), which is exactly what
+# the signature gate is looking for. Seen in practice: a gold-standard
+# attorney reference summary sitting in the same folder as the real
+# documents got ingested as a (misclassified) "Amendment", and because
+# "latest wins" merge has no way to know the file is fake, it silently
+# overrode a correct value from the real lease with a wrong one copied out
+# of the summary's own narrative text.
+#
+# A real signed lease/amendment/guaranty does not look like this - these
+# markers are specific to the generated/reference REPORT shape, not to
+# agreement language in general.
+_SUMMARY_REPORT_TITLE_MARKERS = (
+    "lease summary", "agreement summary", "summary report",
+)
+_SUMMARY_REPORT_HEADER_MARKERS = (
+    "prepared by:", "summary purposes:", "summary purpose:",
+)
+_SUMMARY_REPORT_TABLE_MARKERS = (
+    "interpretation", "raw data", "section reference",
+)
+
+
+def looks_like_summary_report(text: str) -> bool:
+    """
+    True if `text` has the shape of a lease/agreement SUMMARY REPORT
+    (this app's own output, a third-party reference summary, a draft
+    critique of one, etc.) rather than an actual signed agreement. Checked
+    independently of has_signature() - a summary report can easily pass
+    that gate by quoting a real document's signature language - and
+    applied as an exclusion alongside it in the ingest phase.
+
+    Requires a title-style marker ("Lease Summary"/"Agreement Summary")
+    PLUS at least one other structural marker (the "Prepared By:"/
+    "Summary Purposes:" header block, or the Interpretation/Raw Data
+    table column headers this app's own template uses) - the title
+    marker alone is too easy to coincidentally match (e.g. a real lease's
+    own title referencing "this Agreement") to act on by itself.
+    """
+    if not text:
+        return False
+    # Title-style markers only count within the first ~2000 chars - a
+    # summary report's own title is always right at the top; a buried
+    # mid-document mention of "lease summary" inside 100+ pages of real
+    # agreement text is not the same signal.
+    head = text[:2000].lower()
+    if not any(m in head for m in _SUMMARY_REPORT_TITLE_MARKERS):
+        return False
+    lowered = text.lower()
+    has_header_block = any(m in lowered for m in _SUMMARY_REPORT_HEADER_MARKERS)
+    has_table_shape = sum(1 for m in _SUMMARY_REPORT_TABLE_MARKERS if m in lowered) >= 2
+    return has_header_block or has_table_shape
+
+
 @dataclass
 class DocumentInfo:
     """Represents a single document in a multi-file set."""

@@ -21,7 +21,7 @@ import sys
 import re
 import json
 import copy
-from typing import Optional
+from typing import Optional, Dict, Tuple
 import argparse
 from datetime import datetime
 from pathlib import Path
@@ -521,6 +521,52 @@ def find_snippet_screenshot(file_path: str, snippet: str, dpi: int = 250) -> Opt
         doc.close()
         return None
 
+    located = _locate_snippet_in_doc(doc, snippet)
+    if located is None:
+        doc.close()
+        return None
+    page_num, rects = located
+
+    mat = pymupdf.Matrix(dpi / 72, dpi / 72)
+
+    # Use the FULL PAGE WIDTH and a generous vertical window around the
+    # match, rather than a tight box around just the matched words. Older
+    # lease templates (like this one) sometimes lay text out with heavy
+    # justification/one-word-per-line spacing, so a tightly-padded crop can
+    # miss the very content the user needs to see (e.g. a hand-written date
+    # one line below/above the matched anchor phrase). A generous crop
+    # trades a bit of extra context for reliably including the relevant
+    # text.
+    page = doc[page_num]
+    rect = rects[0]
+    v_pad = 220
+    page_rect = page.rect
+    clip = pymupdf.Rect(
+        page_rect.x0,
+        max(page_rect.y0, rect.y0 - v_pad),
+        page_rect.x1,
+        min(page_rect.y1, rect.y1 + v_pad),
+    )
+    pix = page.get_pixmap(matrix=mat, clip=clip)
+    png_bytes = pix.tobytes("png")
+    doc.close()
+    return png_bytes
+
+
+def _locate_snippet_in_doc(doc, snippet: str) -> Optional[Tuple[int, list]]:
+    """
+    Core anchor-search logic shared by find_snippet_screenshot() (renders a
+    cropped screenshot for the HITL review UI) and build_source_locations()
+    (resolves a page number + scroll position for the report's "jump to
+    document" links) - same heuristics, different output. Takes an
+    ALREADY-OPEN pymupdf Document so callers resolving many snippets
+    against the same file (e.g. one per extracted field) only pay the
+    cost of opening it once.
+
+    Returns (page_num, rects) for the best match, or None if nothing
+    matched with enough confidence - see the no-match comment at the
+    bottom for why this never silently guesses a page.
+    """
     # Try progressively shorter fragments of the snippet - a long garbled
     # OCR string is unlikely to exact-match the page's text layer verbatim,
     # but a short distinctive fragment of it (e.g. a nearby clean word) may.
@@ -574,29 +620,6 @@ def find_snippet_screenshot(file_path: str, snippet: str, dpi: int = 250) -> Opt
         if len(clean_w) >= 6 and clean_w.lower() not in _COMMON_WORDS:
             word_candidates.append(clean_w)
 
-    mat = pymupdf.Matrix(dpi / 72, dpi / 72)
-
-    def _render_match(page, rects):
-        # Use the FULL PAGE WIDTH and a generous vertical window around
-        # the match, rather than a tight box around just the matched
-        # words. Older lease templates (like this one) sometimes lay
-        # text out with heavy justification/one-word-per-line spacing,
-        # so a tightly-padded crop can miss the very content the user
-        # needs to see (e.g. a hand-written date one line below/above
-        # the matched anchor phrase). A generous crop trades a bit of
-        # extra context for reliably including the relevant text.
-        rect = rects[0]
-        v_pad = 220
-        page_rect = page.rect
-        clip = pymupdf.Rect(
-            page_rect.x0,
-            max(page_rect.y0, rect.y0 - v_pad),
-            page_rect.x1,
-            min(page_rect.y1, rect.y1 + v_pad),
-        )
-        pix = page.get_pixmap(matrix=mat, clip=clip)
-        return pix.tobytes("png")
-
     for page_num in range(len(doc)):
         page = doc[page_num]
         for candidate in candidates:
@@ -612,9 +635,7 @@ def find_snippet_screenshot(file_path: str, snippet: str, dpi: int = 250) -> Opt
             # catches the most obvious cases) - skip it rather than crop
             # around an essentially-random match.
             if found and len(found) <= 5:
-                png_bytes = _render_match(page, found)
-                doc.close()
-                return png_bytes
+                return page_num, found
 
     # Multi-word phrase candidates found nothing anywhere (the document's
     # own text layer reflows differently than the flattened text the
@@ -653,9 +674,7 @@ def find_snippet_screenshot(file_path: str, snippet: str, dpi: int = 250) -> Opt
             # coincidental word match (like a ToC entry) isn't enough
             # signal to point the user at a specific page with confidence.
             if best_count >= 2:
-                png_bytes = _render_match(doc[best_page_num], best_rects)
-                doc.close()
-                return png_bytes
+                return best_page_num, best_rects
 
     # Nothing matched anywhere in the document with enough confidence - do
     # NOT default to page 0 (or any other page). A silent fallback here
@@ -665,8 +684,64 @@ def find_snippet_screenshot(file_path: str, snippet: str, dpi: int = 250) -> Opt
     # indication the match had actually failed - worse than no screenshot
     # at all, since it looks authoritative. Return None so the caller can
     # render "no preview available" instead.
-    doc.close()
     return None
+
+
+def build_source_locations(file_path: str, snippets: Dict[str, str]) -> Dict[str, Optional[dict]]:
+    """
+    Resolve each field's verbatim source snippet to a page number + scroll
+    anchor within file_path, for the report UI's "jump to document" links.
+    Uses the exact same anchor-search heuristics as
+    find_snippet_screenshot() (see _locate_snippet_in_doc) - just returning
+    page/position data instead of a rendered image - so a field's link
+    lands on the same page a human-verification screenshot would have
+    shown for it.
+
+    Opens the PDF once and reuses it across every snippet, rather than
+    reopening per field (callers typically resolve dozens-to-hundreds of
+    fields from the same document).
+
+    Only meaningful for PDFs - callers should not call this for DOCX
+    sources; those are shown as a plain "document title + section" card in
+    the report UI instead of an inline page view (no stable page concept
+    for an unconverted .docx).
+
+    Returns {field_name: location_dict_or_None}, where location_dict is
+    {"page": 0-indexed page number, "page_count": total pages,
+     "y0": top-of-match y coordinate in PDF points, "page_height": page
+     height in points}. A value of None means no confident match was
+     found - the caller/frontend should fall back to showing page 1 with
+     a "could not locate" notice, same as the existing verification
+     screenshot's no-match behavior.
+    """
+    results: Dict[str, Optional[dict]] = {}
+    try:
+        doc = pymupdf.open(file_path)
+    except Exception:
+        return {fname: None for fname in snippets}
+
+    if len(doc) == 0:
+        doc.close()
+        return {fname: None for fname in snippets}
+
+    try:
+        for fname, snippet in snippets.items():
+            located = _locate_snippet_in_doc(doc, snippet)
+            if located is None:
+                results[fname] = None
+                continue
+            page_num, rects = located
+            page = doc[page_num]
+            results[fname] = {
+                "page": page_num,
+                "page_count": len(doc),
+                "y0": rects[0].y0,
+                "page_height": page.rect.height,
+            }
+    finally:
+        doc.close()
+
+    return results
 
 
 def _ocr_pdf(file_path: str) -> str:

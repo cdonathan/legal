@@ -12,13 +12,15 @@ Run:
 import os
 import re
 import sys
+import time
 import uuid
 import json
 import shutil
+import tempfile
 import threading
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.staticfiles import StaticFiles
@@ -45,8 +47,11 @@ from engine import (
 from agreement_types import get_type, list_types, detect_agreement_type, discover_types
 
 # Also keep backward-compat imports for the pipeline pieces
-from lease_summary_tool import ingest_document, redact_and_capture_pii, find_snippet_screenshot
-from field_variants import needs_verification
+from lease_summary_tool import (
+    ingest_document, redact_and_capture_pii, find_snippet_screenshot,
+    build_source_locations,
+)
+from field_variants import needs_verification, is_none_value, doc_type_label
 
 # XML export
 from xml_export import field_data_to_xml, field_data_to_xml_pretty, XML_FIELDS
@@ -58,7 +63,7 @@ from multi_file import (
     format_field_interpretation, format_field_raw,
     GUARANTY_FIELDS,
     DocumentInfo, FieldHistory,
-    parse_strict_date, is_confident_date, has_signature,
+    parse_strict_date, is_confident_date, has_signature, looks_like_summary_report,
 )
 
 # Error types
@@ -108,8 +113,16 @@ log_info("Application starting up")
 # Discover available agreement types on startup
 discover_types()
 
-# Working directory for uploads and outputs
-WORK_DIR = "/tmp/lease_summary_jobs"
+# Working directory for uploads and outputs. Resolved via tempfile.gettempdir()
+# rather than a hardcoded "/tmp/..." string - on Windows that literal string
+# resolves to "root of the current drive" (e.g. C:\tmp, or worse, a
+# \\wsl.localhost\... network path if the process's cwd happens to be a UNC
+# path), not a real temp directory. os.replace() (used by _save_meta() for
+# atomic writes) can intermittently fail there with WinError 5 ("Access is
+# denied") on rename-over-existing-file, which doesn't happen on a genuine
+# local path. tempfile.gettempdir() correctly returns %TEMP% on Windows and
+# /tmp on POSIX, and can still be overridden via the WORK_DIR env var.
+WORK_DIR = os.environ.get("LEASE_SUMMARY_WORK_DIR") or os.path.join(tempfile.gettempdir(), "lease_summary_jobs")
 os.makedirs(WORK_DIR, exist_ok=True)
 
 
@@ -206,7 +219,13 @@ async def update_settings(
 
 @app.get("/api/browse-folders")
 def browse_folders(path: str = "C:\\"):
-    """List subdirectories at a given path for the folder browser. Accepts Windows paths."""
+    """
+    List subdirectories AND files at a given path for the folder browser
+    (so a user can see what's actually in a folder - e.g. confirm it has
+    the documents they expect - while navigating to pick a destination).
+    Only folders are navigable/selectable; files are shown for reference
+    only. Accepts Windows paths.
+    """
     # Convert to WSL path for filesystem access (no-op on native Windows)
     wsl_path = _win_to_wsl(path)
 
@@ -214,10 +233,19 @@ def browse_folders(path: str = "C:\\"):
         raise HTTPException(400, f"Not a valid directory: {path}")
 
     entries = []
+    files = []
     try:
         for entry in sorted(os.scandir(wsl_path), key=lambda e: e.name.lower()):
-            if entry.is_dir() and not entry.name.startswith('.'):
+            if entry.name.startswith('.'):
+                continue
+            if entry.is_dir():
                 entries.append(entry.name)
+            elif entry.is_file():
+                try:
+                    size = entry.stat().st_size
+                except OSError:
+                    size = None
+                files.append({"name": entry.name, "size": size})
     except PermissionError:
         pass
 
@@ -240,6 +268,7 @@ def browse_folders(path: str = "C:\\"):
         "current": win_current,
         "parent": win_parent,
         "folders": entries,
+        "files": files,
     }
 
 
@@ -275,6 +304,10 @@ def _run_single_file_pipeline(
         "status": "processing",
         "created_at": datetime.now().isoformat(),
         "phases": {},
+        # Filename -> filepath lookup, mirrored in multi-file mode too, so
+        # GET /api/source/{job_id} has one consistent way to resolve a
+        # cited document regardless of which pipeline produced the job.
+        "doc_filepaths": {filename: input_path},
     }
 
     # Run the pipeline
@@ -358,6 +391,29 @@ def _run_single_file_pipeline(
         )
         job_meta["field_data"] = field_data
         job_meta["verify_report"] = verify_report
+        _save_meta(job_dir, job_meta)
+
+        # Phase 3B-locate: Resolve each field's source location (PDF page +
+        # scroll anchor) for the report UI's "jump to document" links.
+        # PDF-only - DOCX sources show a title+section text card in the
+        # viewer instead of an inline page view (no stable page concept
+        # for an unconverted .docx). Fields still flagged NEEDS
+        # VERIFICATION are skipped - there's nothing confident to link to
+        # yet, and the HITL step below is the mechanism for resolving those.
+        job_meta["phases"]["locate"] = "running"
+        _save_meta(job_dir, job_meta)
+        source_locations: Dict[str, Optional[dict]] = {}
+        if Path(input_path).suffix.lower() == ".pdf":
+            loc_snippets = {
+                fname: raw_text[start:end]
+                for fname, (start, end) in positions.items()
+                if field_data.get(fname) and not needs_verification(field_data.get(fname, ""))
+            }
+            if loc_snippets:
+                source_locations = build_source_locations(input_path, loc_snippets)
+        job_meta["source_locations"] = source_locations
+        located_count = sum(1 for v in source_locations.values() if v)
+        job_meta["phases"]["locate"] = f"done ({located_count}/{len(source_locations)} located)"
         _save_meta(job_dir, job_meta)
 
         # Phase 3B2: Human verification pause. Any field whose source region
@@ -836,6 +892,38 @@ def _run_multi_file_pipeline(
                 f"None of the {len(files)} files could be processed. {reasons}"
             )
 
+        # Phase 1A2: Summary-report gate - excludes a lease/agreement
+        # SUMMARY REPORT (this app's own generated output, an attorney's
+        # reference summary of the same deal, an earlier draft critique,
+        # etc.) that happens to be sitting in the same folder as the real
+        # source documents. This is NOT the same check as the signature
+        # gate below - a summary report routinely quotes a real
+        # document's execution language verbatim in its own narrative
+        # text, which is exactly what has_signature() looks for, so it
+        # can pass that gate and get ingested as if it were a real
+        # (misclassified) agreement. Once that happens, "latest wins"
+        # merge has no way to know the file is fake - it can silently
+        # override a correct value from the real lease with a wrong one
+        # copied out of the summary's own narrative. See
+        # looks_like_summary_report() in multi_file.py.
+        summary_docs = [d for d in doc_infos if looks_like_summary_report(d.text)]
+        if summary_docs:
+            doc_infos = [d for d in doc_infos if not looks_like_summary_report(d.text)]
+            for d in summary_docs:
+                log_code("W100", extra=f"{d.filename}: looks like a lease/agreement summary report, not a source document - excluded", job_id=job_id)
+                print(f"    EXCLUDED (looks like a summary report, not a source agreement): {d.filename}")
+                skipped_files.append({
+                    "filename": d.filename,
+                    "reason": "This looks like a lease/agreement summary report (a title/header/table shape matching a generated or reference summary, not a signed agreement) rather than a source document - excluded so it can't be mistaken for one.",
+                    "code": "W100",
+                })
+
+        if not doc_infos:
+            reasons = "; ".join(f"{s['filename']}: {s['reason']}" for s in skipped_files[:5])
+            raise ProcessingError(
+                f"None of the {len(files)} files look like source agreements. {reasons}"
+            )
+
         # Phase 1B: Signature gate - a document with no signature
         # indicator is not an executed/finalized agreement and cannot be
         # trusted for any field (a draft's "Effective Date" line may be
@@ -868,6 +956,10 @@ def _run_multi_file_pipeline(
 
         job_meta["phases"]["ingest"] = f"done ({len(doc_infos)} files, {len(skipped_files)} skipped)"
         job_meta["skipped_files"] = skipped_files
+        # Filename -> filepath lookup so GET /api/source/{job_id} can serve
+        # back whichever document a report row's link points at (mirrors
+        # the same key in the single-file pipeline).
+        job_meta["doc_filepaths"] = {d.filename: d.filepath for d in doc_infos}
         _save_meta(job_dir, job_meta)
 
         # Phase 2: PII scan (aggregate)
@@ -1001,6 +1093,34 @@ def _run_multi_file_pipeline(
         job_meta["phases"]["verify"] = f"done ({len(doc_infos)} document(s))"
         _save_meta(job_dir, job_meta)
 
+        # Phase 3B-locate: Resolve each document's own fields to a PDF
+        # page + scroll anchor, for the report UI's "jump to document"
+        # links. Keyed by (filename -> field -> location) so the merge
+        # step below can look up a location for whichever document ends
+        # up supplying each field's current value AND every historical
+        # value - a field's location depends on which document it came
+        # from, not on the merged field itself. PDF-only per document;
+        # DOCX sources are left out entirely (empty dict - any lookup
+        # against them naturally returns None) since they show a
+        # title+section card instead of an inline page view.
+        job_meta["phases"]["locate"] = "running"
+        _save_meta(job_dir, job_meta)
+        doc_locations: Dict[str, Dict[str, Optional[dict]]] = {}
+        for d in doc_infos:
+            if Path(d.filepath).suffix.lower() != ".pdf":
+                doc_locations[d.filename] = {}
+                continue
+            loc_snippets = {
+                fname: d.text[start:end]
+                for fname, (start, end) in doc_positions.get(d.filename, {}).items()
+                if d.field_data.get(fname) and not needs_verification(d.field_data.get(fname, ""))
+            }
+            doc_locations[d.filename] = build_source_locations(d.filepath, loc_snippets) if loc_snippets else {}
+        located_total = sum(1 for locs in doc_locations.values() for v in locs.values() if v)
+        resolved_total = sum(len(locs) for locs in doc_locations.values())
+        job_meta["phases"]["locate"] = f"done ({located_total}/{resolved_total} located)"
+        _save_meta(job_dir, job_meta)
+
         # Phase 3C: Determine the three date facts that actually matter, by
         # SIMPLE RULE from each document's own real, VALIDATED date - never
         # by AI-guessed filename ordering, and never by a fragile
@@ -1076,6 +1196,25 @@ def _run_multi_file_pipeline(
         )
         job_meta["phases"]["merge"] = f"done ({len(merged_fields)} fields merged)"
         _save_meta(job_dir, job_meta)
+
+        # Build the report UI's per-field location map now, while doc
+        # identity is still easy to resolve - each merged field's CURRENT
+        # value and every HISTORY entry each came from a specific document
+        # (hist.current_source / entry["source"], a filename), so each one
+        # gets its own independent location lookup into doc_locations
+        # built above. History order matches FieldHistory.history exactly
+        # (chronological, oldest first) - same order the existing
+        # format_field_raw()/format_field_with_history() reverse for
+        # display, so the frontend should reverse it the same way.
+        source_locations: Dict[str, dict] = {}
+        for fname, hist in merged_fields.items():
+            current_loc = doc_locations.get(hist.current_source, {}).get(fname)
+            history_locs = [
+                doc_locations.get(entry.get("source", ""), {}).get(fname)
+                for entry in hist.history
+            ]
+            source_locations[fname] = {"current": current_loc, "history": history_locs}
+        job_meta["source_locations"] = source_locations
 
         # Phase 4B: Human verification - ONE combined pass presenting EVERY
         # flagged item at once (not a sequence of separate pauses). Two
@@ -1332,8 +1471,18 @@ def _run_multi_file_pipeline(
         #                      precise, always tagged with its section ref
         #   FieldName_Raw  -- Raw Data: every historical version, each
         #                      tagged with its source document + section
-        from field_variants import clean_value
+        from field_variants import clean_value, is_none_value, doc_type_label
         final_field_data = {}
+        # Structured (not pre-formatted-string) version of each field's
+        # current + historical entries, for the new linked-report UI
+        # (GET /api/report/{job_id}) to build its table from directly,
+        # rather than re-parsing the human-readable Raw/Int strings above.
+        # Each entry's "located" location (page/scroll target) comes from
+        # the doc_locations map built right after Phase 3B - unaffected by
+        # the "(human-verified)" source-label suffix the HITL step below
+        # may append, since that's a cosmetic label change, not a change
+        # in which document/position the field was originally found at.
+        merged_field_history: Dict[str, dict] = {}
         fields_with_history = 0
         for field_name, history in merged_fields.items():
             is_short_field = field_name in agr.short_fields
@@ -1344,6 +1493,39 @@ def _run_multi_file_pipeline(
             final_field_data[f"{field_name}_Raw"] = format_field_raw(history)
             if history.history:
                 fields_with_history += 1
+
+            loc = source_locations.get(field_name, {"current": None, "history": []})
+            current_label = doc_type_label(
+                history.current_doc_type, history.current_amendment_number,
+                fallback=Path(history.current_source).stem if history.current_source else "",
+            )
+            merged_field_history[field_name] = {
+                "current": {
+                    "value": history.current_value,
+                    "interpretation": history.current_interpretation,
+                    "section": history.current_section,
+                    "source": history.current_source,
+                    "doc_label": current_label,
+                    "is_none": is_none_value(history.current_value),
+                    "location": loc.get("current"),
+                },
+                "history": [
+                    {
+                        "value": entry.get("value", ""),
+                        "interpretation": entry.get("interpretation", ""),
+                        "section": entry.get("section", ""),
+                        "source": entry.get("source", ""),
+                        "doc_label": doc_type_label(
+                            entry.get("doc_type", ""), entry.get("amendment_number"),
+                            fallback=Path(entry.get("source", "")).stem if entry.get("source") else "",
+                        ),
+                        "is_none": is_none_value(entry.get("value", "")),
+                        "location": (loc.get("history") or [None] * len(history.history))[i]
+                        if i < len(loc.get("history") or []) else None,
+                    }
+                    for i, entry in enumerate(history.history)
+                ],
+            }
 
         # Fields never seen in any document at all still need to show "None"
         # for every one of the 3 variables (never a bare/blank placeholder).
@@ -1375,6 +1557,7 @@ def _run_multi_file_pipeline(
         )
         job_meta["field_data"] = final_field_data
         job_meta["normalized_dates"] = merged_dates
+        job_meta["merged_field_history"] = merged_field_history
 
         # Store document list for reference
         job_meta["documents"] = [
@@ -1575,6 +1758,85 @@ async def upload_folder(
     return {"job_id": job_id, "status": "processing"}
 
 
+@app.post("/api/upload-files")
+async def upload_files(
+    files: List[UploadFile] = File(...),
+    preparer: str = Form(""),
+    purpose: str = Form(""),
+    agreement_type: str = Form("auto"),
+):
+    """
+    Multi-file summary via actual browser upload (drag-and-drop a folder,
+    or a folder picker using webkitdirectory) rather than a server-local
+    path. This is the upload-based counterpart to /api/upload-folder,
+    which stays as-is for the existing path-typed/browsed workflow -
+    browser drag-and-drop only ever hands the page File objects (never a
+    filesystem path), so folder mode needs a real upload path to support
+    it. Every uploaded file is written into this job's own sources/
+    subfolder, then handed to the same _run_multi_file_pipeline used by
+    /api/upload-folder.
+    """
+    if not files:
+        raise HTTPException(400, "No files were uploaded")
+
+    job_id = str(uuid.uuid4())[:8]
+    job_dir = os.path.join(WORK_DIR, job_id)
+    sources_dir = os.path.join(job_dir, "sources")
+    os.makedirs(sources_dir, exist_ok=True)
+
+    saved_paths = []
+    for uf in files:
+        # Drag-and-drop of a folder yields webkitRelativePath-style names
+        # (e.g. "MyFolder/sub/Lease.pdf") in some browsers - flatten to
+        # just the base filename, since scan_folder()/the multi-file
+        # pipeline only cares about files directly in one folder. Guard
+        # against path traversal and empty/duplicate names.
+        base_name = os.path.basename((uf.filename or "").replace("\\", "/")) or "upload"
+        base_name = re.sub(r'[\\/]+', '_', base_name).strip() or "upload"
+        dest_path = os.path.join(sources_dir, base_name)
+        if os.path.exists(dest_path):
+            stem, ext = os.path.splitext(base_name)
+            dest_path = os.path.join(sources_dir, f"{stem}_{uuid.uuid4().hex[:6]}{ext}")
+        content = await uf.read()
+        if not content:
+            continue
+        with open(dest_path, "wb") as f:
+            f.write(content)
+        saved_paths.append(dest_path)
+
+    if not saved_paths:
+        raise HTTPException(400, "No non-empty files were uploaded")
+
+    supported_files = [p for p in saved_paths if Path(p).suffix.lower() in {".pdf", ".docx", ".doc", ".txt"}]
+    if not supported_files:
+        raise HTTPException(400, "None of the uploaded files are a supported type (PDF, DOCX, DOC, TXT)")
+
+    job_meta = {
+        "job_id": job_id,
+        "mode": "multi_file",
+        "folder_path": sources_dir,
+        "file_count": len(supported_files),
+        "preparer": preparer,
+        "purpose": purpose,
+        "status": "processing",
+        "created_at": datetime.now().isoformat(),
+        "phases": {},
+        "documents": [],
+    }
+    _save_meta(job_dir, job_meta)
+
+    log_code("I103", extra=f"uploaded folder ({len(supported_files)} files)", job_id=job_id)
+
+    thread = threading.Thread(
+        target=_run_multi_file_pipeline,
+        args=(job_id, job_dir, sources_dir, sources_dir, sorted(supported_files), preparer, purpose, agreement_type),
+        daemon=True,
+    )
+    thread.start()
+
+    return {"job_id": job_id, "status": "processing"}
+
+
 @app.get("/api/status/{job_id}")
 def get_job_status(job_id: str):
     """
@@ -1627,6 +1889,19 @@ async def submit_verification(job_id: str, corrections: dict):
         raise HTTPException(400, "corrections must be an object mapping field name to corrected value")
 
     meta["_pending_corrections"] = corrections_dict
+    # Flip status away from "needs_verification" synchronously, in this same
+    # write, rather than waiting for the background pipeline thread to wake
+    # up and do it. Without this, there's a race: the client's status poll
+    # (fired immediately after this endpoint returns, with no delay) can
+    # land before the woken background thread has had a chance to persist
+    # its own status update, sees the still-stale "needs_verification" +
+    # the old verification_items, and re-shows the just-submitted form. If
+    # the user then submits again on that stale re-render, this endpoint
+    # (now correctly past verification) rejects the second submit with
+    # "This job is not currently waiting on verification". Setting it here
+    # closes that window - the status update and the HTTP response that
+    # unblocks the client's next poll happen atomically in this request.
+    meta["status"] = "processing"
     _save_meta(job_dir, meta)
 
     with _VERIFICATION_LOCK:
@@ -1690,6 +1965,156 @@ def preview_summary(job_id: str):
         "sections": preview,
         "all_fields": field_data,
     }
+
+
+@app.get("/api/report/{job_id}")
+def report_summary(job_id: str):
+    """
+    Structured, link-ready version of the report for the new split-view
+    UI: a flat, continuously-numbered table (No. / Category / entries)
+    matching the generated Word doc's layout, where each row's
+    "Interpretation"/"Section" is paired with a "Link" pointing at the
+    exact source document + page instead of a raw-text column. A row with
+    history (multi-file mode only) carries multiple entries - current
+    first, then prior versions most-recent-first - each with its own
+    independent link, since each can come from a different document.
+
+    Every entry's `located` reflects whether a confident page/position
+    match was found (see build_source_locations()/find_snippet_screenshot
+    in lease_summary_tool.py): false means the frontend should fall back
+    to opening the document at page 1 with a "could not locate" notice,
+    per product decision, rather than guessing. `is_pdf` tells the
+    frontend whether an inline page-jump view is possible at all (DOCX
+    sources only ever show a title + section text card).
+    """
+    job_dir = os.path.join(WORK_DIR, job_id)
+    meta = _load_meta(job_dir)
+    if not meta:
+        raise HTTPException(404, "Job not found")
+    if meta["status"] != "complete":
+        raise HTTPException(400, f"Job status: {meta['status']}")
+
+    agreement_type_id = meta.get("agreement_type", "lease")
+    agr = get_type(agreement_type_id)
+    if not agr:
+        raise HTTPException(500, f"Agreement type '{agreement_type_id}' not found")
+
+    mode = meta.get("mode", "single")
+    doc_filepaths = meta.get("doc_filepaths", {}) or {}
+
+    def _is_pdf(filename: str) -> bool:
+        path = doc_filepaths.get(filename, "") or ""
+        return path.lower().endswith(".pdf")
+
+    def _entry(value, interpretation, section, source, doc_label, location):
+        return {
+            "value": value,
+            "interpretation": interpretation,
+            "section": section or "",
+            "source": source or "",
+            "doc_label": doc_label or "",
+            "is_none": is_none_value(value),
+            "is_pdf": _is_pdf(source) if source else False,
+            "located": bool(location),
+            "page": (location or {}).get("page"),
+            "page_count": (location or {}).get("page_count"),
+            "y0": (location or {}).get("y0"),
+            "page_height": (location or {}).get("page_height"),
+        }
+
+    rows = []
+    row_no = 0
+
+    if mode == "multi_file":
+        merged_history = meta.get("merged_field_history", {})
+        for section in agr.sections:
+            for field_entry in section.get("fields", []):
+                if not (isinstance(field_entry, (list, tuple)) and len(field_entry) >= 2):
+                    continue
+                field_key, label = field_entry[0], field_entry[1]
+                row_no += 1
+                hist = merged_history.get(field_key)
+                entries = []
+                if hist:
+                    cur = hist["current"]
+                    entries.append(_entry(
+                        cur["value"], cur["interpretation"], cur["section"],
+                        cur["source"], cur["doc_label"], cur["location"],
+                    ))
+                    for h in hist["history"]:
+                        entries.append(_entry(
+                            h["value"], h["interpretation"], h["section"],
+                            h["source"], h["doc_label"], h["location"],
+                        ))
+                else:
+                    entries.append(_entry("None", "None", "", "", "", None))
+                rows.append({
+                    "no": row_no, "key": field_key, "category": label,
+                    "section_title": section["title"], "entries": entries,
+                })
+    else:
+        field_data = meta.get("field_data", {})
+        interpretations = meta.get("interpretations", {})
+        field_sections = meta.get("sections", {})
+        source_locations = meta.get("source_locations", {})
+        source_filename = meta.get("filename", "")
+        sub_type = meta.get("sub_type", "")
+        label = doc_type_label(sub_type, fallback=sub_type) if sub_type else ""
+        for section in agr.sections:
+            for field_entry in section.get("fields", []):
+                if not (isinstance(field_entry, (list, tuple)) and len(field_entry) >= 2):
+                    continue
+                field_key, field_label = field_entry[0], field_entry[1]
+                row_no += 1
+                value = field_data.get(field_key, "None")
+                interpretation = interpretations.get(field_key, "") or field_data.get(f"{field_key}_Int", "") or value
+                section_ref = field_sections.get(field_key, "")
+                location = source_locations.get(field_key)
+                entries = [_entry(value, interpretation, section_ref, source_filename, label, location)]
+                rows.append({
+                    "no": row_no, "key": field_key, "category": field_label,
+                    "section_title": section["title"], "entries": entries,
+                })
+
+    return {
+        "job_id": job_id,
+        "mode": mode,
+        "agreement_name": agr.name,
+        "output_filename": meta.get("output_filename", ""),
+        "documents": meta.get("documents", []),
+        "rows": rows,
+    }
+
+
+@app.get("/api/source/{job_id}")
+def get_source_document(job_id: str, doc: str = ""):
+    """
+    Stream an original source document back to the frontend's document
+    viewer pane. `doc` is a source filename as returned by
+    GET /api/report/{job_id} (entries[].source) - looked up against this
+    job's own doc_filepaths map, never used directly as a filesystem path,
+    so this can't be used to read arbitrary files off disk. Falls back to
+    the job's single primary input file when `doc` is omitted (single-file
+    mode's only document).
+    """
+    job_dir = os.path.join(WORK_DIR, job_id)
+    meta = _load_meta(job_dir)
+    if not meta:
+        raise HTTPException(404, "Job not found")
+
+    doc_filepaths = meta.get("doc_filepaths", {}) or {}
+    path = doc_filepaths.get(doc) if doc else None
+    if not path and not doc:
+        path = meta.get("input_path")
+    if not path or not os.path.exists(path):
+        raise HTTPException(404, "Source document not found (it may have been moved or deleted since processing)")
+
+    ext = Path(path).suffix.lower()
+    media_type = "application/pdf" if ext == ".pdf" else (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        if ext == ".docx" else "application/octet-stream"
+    )
+    return FileResponse(path, media_type=media_type, filename=os.path.basename(path))
 
 
 @app.get("/api/download/{job_id}")
@@ -1773,7 +2198,29 @@ def _save_meta(job_dir: str, meta: dict):
     tmp_path = meta_path + f".tmp{os.getpid()}"
     with open(tmp_path, "w") as f:
         json.dump(meta, f, indent=2)
-    os.replace(tmp_path, meta_path)
+
+    # os.replace() is documented as atomic on Windows too, but in practice
+    # it can transiently raise "[WinError 5] Access is denied" when the
+    # DESTINATION file happens to be open in another thread at that exact
+    # instant - e.g. a concurrent GET /api/status/{job_id} read (this
+    # function is called dozens of times per job from the background
+    # pipeline thread while the frontend polls status every ~1.5s from
+    # separate request-handler threads), or a real-time antivirus scan
+    # briefly locking the just-written temp file. This is a known, narrow
+    # Windows-only race (not a path/permissions problem - it can happen on
+    # a perfectly normal local path) with a standard fix: retry the rename
+    # a few times with a tiny backoff rather than failing the whole job.
+    last_err = None
+    for attempt in range(8):
+        try:
+            os.replace(tmp_path, meta_path)
+            return
+        except PermissionError as e:
+            last_err = e
+            time.sleep(0.02 * (attempt + 1))
+    # Exhausted retries - surface the original error rather than silently
+    # dropping this update.
+    raise last_err
 
 
 def _load_meta(job_dir: str) -> dict:
